@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NEON DODGE — combien de galaxies peux-tu traverser ?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E1A;
+    --cyan:#00F0FF;
+    --magenta:#FF2E88;
+    --amber:#FFC93C;
+    --lime:#B4FF39;
+    --violet:#9B7BFF;
+    --text:#E8ECF7;
+    --muted:#7C86A8;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:var(--bg);
+    font-family:'Inter',sans-serif; color:var(--text); touch-action:none; user-select:none; }
+  #wrap{ position:relative; width:100vw; height:100vh; display:flex; align-items:center; justify-content:center; }
+  canvas{ display:block; background:#0B0E1A; }
+
+  .hud{ position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:flex-start;
+    padding:16px 18px; pointer-events:none; z-index:5; }
+  .hud-block{ display:flex; flex-direction:column; gap:2px; }
+  .hud-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .hud-value{ font-family:'Orbitron',sans-serif; font-weight:800; font-size:24px; color:var(--cyan);
+    text-shadow:0 0 14px rgba(0,240,255,.55); font-variant-numeric: tabular-nums; }
+  .hud-value.combo{ color:var(--lime); text-shadow:0 0 14px rgba(180,255,57,.6);}
+  .hud-value.best{ color:var(--amber); text-shadow:0 0 14px rgba(255,201,60,.5); font-size:16px;}
+  .hud-value.crystals{ color:var(--lime); font-size:16px; display:flex; align-items:center; gap:4px; }
+
+  .galaxy-tag{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    font-family:'Orbitron',sans-serif; font-size:11px; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--text); background:rgba(20,26,48,.55);
+    padding:6px 16px; border-radius:999px; border:1px solid rgba(255,255,255,.08);
+    pointer-events:none; z-index:5; opacity:.85; white-space:nowrap;
+  }
+  .boss-bar{
+    position:absolute; top:46px; left:50%; transform:translateX(-50%); z-index:6;
+    display:flex; flex-direction:column; align-items:center; gap:4px; pointer-events:none; width:min(70vw,320px);
+  }
+  .boss-name{ font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800; letter-spacing:.1em; color:var(--magenta);
+    text-shadow:0 0 10px rgba(255,46,136,.6); }
+  .boss-hp{ width:100%; height:8px; border-radius:999px; background:rgba(255,255,255,.1); overflow:hidden; border:1px solid rgba(255,255,255,.15); }
+  .boss-hp i{ display:block; height:100%; background:linear-gradient(90deg, var(--magenta), var(--amber)); transition:width .15s ease; }
+
+  .pauseBtn{
+    position:absolute; top:14px; right:14px; z-index:8;
+    width:42px; height:42px; border-radius:50%; border:1.5px solid rgba(232,236,247,.25);
+    background:rgba(20,26,48,.65); color:var(--text); font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .pauseBtn:active{ transform:scale(.92); }
+
+  .powerbar{ position:absolute; top:0; left:0; display:flex; gap:5px; z-index:6; pointer-events:none;
+    transform:translate(-50%,-100%); }
+  .power-chip{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    background:rgba(20,26,48,.78); border-radius:9px; padding:3px 6px;
+    border:1px solid rgba(255,255,255,.14); min-width:24px;
+  }
+  .power-chip .ic{ font-size:12px; line-height:1; }
+  .power-chip .bar{ width:20px; height:2.5px; background:rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
+  .power-chip .bar i{ display:block; height:100%; background:var(--cyan); }
+
+  .overlay{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    text-align:center; background:rgba(9,11,20,.82); backdrop-filter: blur(8px); z-index:10; padding:22px; gap:16px;
+    overflow-y:auto;
+    /* justify-content:center clips the top of overflowing content on scroll — "safe center" keeps it centered when it
+       fits, but falls back to top-aligned (scrollable) when the content is taller than the screen. */
+    justify-content:safe center; }
+  .hidden{ display:none !important; }
+
+  .title{ font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(34px, 8.5vw, 58px); letter-spacing:.03em;
+    background:linear-gradient(90deg, var(--cyan), var(--lime) 55%, var(--magenta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(0,240,255,.25); margin:0; line-height:1; }
+  .subtitle{ color:var(--muted); font-size:13.5px; max-width:360px; line-height:1.5; margin:0; }
+  .subtitle b{ color:var(--text); }
+
+  .btn{ font-family:'Orbitron',sans-serif; font-weight:700; font-size:15px; letter-spacing:.05em; padding:14px 30px;
+    border-radius:999px; border:none; cursor:pointer; background:linear-gradient(90deg, var(--cyan), var(--lime));
+    color:#06131a; box-shadow:0 0 0 1px rgba(255,255,255,.08) inset, 0 8px 26px rgba(0,240,255,.28);
+    transition:transform .12s ease; }
+  .btn:active{ transform:scale(.96); }
+  .btn.secondary{ background:transparent; color:var(--text); box-shadow:0 0 0 1.5px rgba(232,236,247,.28) inset; padding:13px 26px; font-size:14px;}
+  .btn.small{ padding:9px 18px; font-size:12px; }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+
+  .score-big{ font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(48px, 13vw, 84px); color:var(--text);
+    line-height:1; margin:0; text-shadow:0 0 30px rgba(0,240,255,.3); }
+  .score-caption{ font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .record-tag{ font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800; letter-spacing:.08em; color:#06131a;
+    background:var(--amber); padding:6px 14px; border-radius:999px; box-shadow:0 0 20px rgba(255,201,60,.5); }
+  .copied-msg{ font-size:12px; color:var(--lime); font-weight:600; height:14px; }
+
+  .menu-stats{ display:flex; gap:22px; margin-top:2px; }
+  .menu-stat{ display:flex; flex-direction:column; align-items:center; }
+  .menu-stat .v{ font-family:'Orbitron',sans-serif; font-weight:800; font-size:18px; color:var(--amber); }
+  .menu-stat .l{ font-size:10px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; }
+
+  .level-widget{ display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:260px; }
+  .level-widget.compact{ max-width:220px; }
+  .level-pill{ font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800; letter-spacing:.06em;
+    background:rgba(180,255,57,.1); border:1px solid rgba(180,255,57,.35); color:var(--lime);
+    padding:5px 16px; border-radius:999px; display:flex; align-items:center; gap:6px; }
+  .level-pill span{ color:var(--muted); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.1em; }
+  .xp-track{ width:100%; height:6px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; }
+  .xp-fill{ height:100%; width:0%; background:linear-gradient(90deg, var(--cyan), var(--lime)); border-radius:999px; transition:width .5s ease; }
+  .xp-text{ font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+  .hud-level{ display:flex; align-items:center; gap:5px; margin-top:2px; opacity:.75; }
+  .hud-level .lv{ font-size:10px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .hud-xp-track{ width:32px; height:3px; background:rgba(255,255,255,.15); border-radius:3px; overflow:hidden; display:inline-block; }
+  .hud-xp-fill{ display:block; height:100%; width:0%; background:var(--cyan); }
+
+  .panel-title{ font-family:'Orbitron',sans-serif; font-weight:800; font-size:22px; letter-spacing:.03em; margin:0; }
+
+  .settings-block{ display:flex; flex-direction:column; gap:16px; max-width:360px; width:100%; margin:6px 0; }
+  .settings-row{ display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; }
+  .settings-row span:first-child{ min-width:118px; text-align:left; }
+  .settings-row input[type=range]{ flex:1; accent-color:var(--lime); }
+  .settings-val{ min-width:38px; text-align:right; color:var(--muted); font-size:11.5px; font-variant-numeric:tabular-nums; }
+
+  .skin-search{ width:100%; max-width:360px; padding:10px 14px; border-radius:999px; border:1.5px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.04); color:var(--text); font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+  .skin-search::placeholder{ color:var(--muted); }
+
+  .skin-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(112px,1fr)); gap:10px; max-width:560px; width:100%; }
+  .skin-card{ position:relative; background:rgba(255,255,255,.03); border:1.5px solid rgba(255,255,255,.08); border-radius:16px;
+    padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .skin-card.selected{ border-color:var(--lime); box-shadow:0 0 18px rgba(180,255,57,.25); }
+  .skin-card canvas{ width:52px; height:52px; }
+  .skin-card .name{ font-size:11.5px; font-weight:700; }
+  .skin-card .lockinfo{ font-size:9.5px; color:var(--muted); text-align:center; line-height:1.3; }
+
+  .fav-btn{ position:absolute; top:6px; right:6px; background:none; border:none; color:var(--muted);
+    font-size:14px; cursor:pointer; padding:2px; line-height:1; }
+  .fav-btn.active{ color:var(--amber); text-shadow:0 0 8px rgba(255,201,60,.6); }
+
+  .ach-list{ display:flex; flex-direction:column; gap:8px; max-width:440px; width:100%; max-height:44vh; overflow-y:auto; padding-right:4px;}
+  .ach-item{ position:relative; display:flex; align-items:center; gap:12px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07);
+    border-radius:12px; padding:10px 14px; text-align:left; }
+  .ach-item.unlocked{ border-color:rgba(180,255,57,.3); background:rgba(180,255,57,.05); }
+  .ach-item .aic{ font-size:20px; width:28px; text-align:center; flex-shrink:0; }
+  .ach-item .at{ font-size:13px; font-weight:700; }
+  .ach-item .ad{ font-size:11px; color:var(--muted); }
+  .ach-item.locked .at, .ach-item.locked .ad{ color:var(--muted); }
+
+  .boss-intro-banner{ position:absolute; top:38%; left:50%; transform:translate(-50%,-50%) scale(.8); z-index:9;
+    font-family:'Orbitron',sans-serif; font-weight:900; text-align:center; letter-spacing:.08em;
+    color:var(--magenta); text-shadow:0 0 30px rgba(255,46,136,.7), 0 0 60px rgba(155,123,255,.5);
+    font-size:clamp(20px,5.5vw,40px); pointer-events:none; opacity:0;
+    transition:opacity .8s ease, transform .8s ease; }
+  .boss-intro-banner.show{ opacity:1; transform:translate(-50%,-50%) scale(1); animation:bossPulse 1.6s ease-in-out infinite; }
+  .boss-intro-banner .sub{ display:block; font-size:.4em; color:var(--text); letter-spacing:.15em; margin-top:8px; text-shadow:none; opacity:.85; }
+  @keyframes bossPulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
+
+  .toast-wrap{ position:absolute; top:60px; left:50%; transform:translateX(-50%); z-index:20; display:flex;
+    flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
+  .toast{ font-family:'Inter',sans-serif; font-size:12.5px; font-weight:700; background:rgba(18,23,41,.92);
+    border:1px solid rgba(255,255,255,.12); padding:10px 18px; border-radius:999px; display:flex; align-items:center; gap:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4); animation:toastIn .35s ease, toastOut .4s ease 2.1s forwards; }
+  @keyframes toastIn{ from{opacity:0; transform:translateY(-10px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes toastOut{ to{opacity:0; transform:translateY(-8px);} }
+
+  footer.credit{ position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:10px; letter-spacing:.1em;
+    color:rgba(124,134,168,.4); z-index:5; pointer-events:none; }
+
+  .rules-block{ margin-bottom:14px; }
+  .rules-block b{ font-size:13px; color:var(--text); }
+  .rules-block p{ margin:4px 0 0; font-size:12px; color:var(--muted); line-height:1.5; }
+
+  .encyclo-tabs{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; max-width:480px; margin:2px 0; }
+  .encyclo-tab{ font-family:'Inter',sans-serif; font-size:11px; font-weight:700; padding:7px 13px; border-radius:999px;
+    border:1.5px solid rgba(255,255,255,.14); background:rgba(255,255,255,.03); color:var(--muted); cursor:pointer; }
+  .encyclo-tab.active{ color:#06131a; background:var(--cyan); border-color:var(--cyan); }
+
+  .ach-item.clickable{ cursor:pointer; }
+  .ach-item.clickable:active{ transform:scale(.98); }
+
+  .detail-card{ display:flex; flex-direction:column; align-items:center; gap:10px; max-width:380px; padding:26px 22px;
+    border-radius:22px; background:rgba(255,255,255,.03); border:1.5px solid rgba(255,255,255,.1); }
+  .detail-icon{ font-size:64px; line-height:1; }
+  .detail-name{ font-family:'Orbitron',sans-serif; font-weight:800; font-size:20px; text-align:center; }
+  .detail-rarity{ font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800; letter-spacing:.1em; padding:5px 14px; border-radius:999px; }
+  .detail-desc{ font-size:13px; color:var(--muted); text-align:center; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div class="hud" id="hudTop">
+    <div class="hud-block">
+      <span class="hud-label">Score</span>
+      <span class="hud-value" id="scoreVal">0</span>
+      <div class="hud-level"><span class="lv">Nv. <b id="hudLevelVal">1</b></span><span class="hud-xp-track"><span class="hud-xp-fill" id="hudXpFill" style="width:0%"></span></span></div>
+    </div>
+    <div class="hud-block" style="align-items:flex-end; margin-top:56px;">
+      <span class="hud-label">Record</span>
+      <span class="hud-value best" id="bestVal">0</span>
+    </div>
+  </div>
+  <div class="galaxy-tag hidden" id="galaxyTag">Ceinture d'Astéroïdes</div>
+  <div class="boss-bar hidden" id="bossBar">
+    <span class="boss-name" id="bossNameEl">👑 GARDIEN STELLAIRE</span>
+    <div class="boss-hp"><i id="bossHpFill" style="width:100%"></i></div>
+  </div>
+  <button class="pauseBtn hidden" id="pauseBtn">❚❚</button>
+
+  <div class="hud" style="top:auto; bottom:0;">
+    <div class="hud-block">
+      <span class="hud-label">Combo</span>
+      <span class="hud-value combo" id="comboVal">×1</span>
+    </div>
+    <div class="hud-block" style="align-items:flex-end;">
+      <span class="hud-label">Cristaux</span>
+      <span class="hud-value crystals" id="crystalRunVal">◆ 0</span>
+    </div>
+  </div>
+  <div class="powerbar" id="powerbar"></div>
+  <div class="boss-intro-banner" id="bossIntroBanner"></div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- START MENU -->
+  <div class="overlay" id="startScreen">
+    <h1 class="title">NEON DODGE</h1>
+    <p class="subtitle">Esquive, récolte, enchaîne les combos et traverse les galaxies. Affronte le <b>Gardien Stellaire</b> au bout du voyage pour débloquer le mode infini.</p>
+    <div class="level-widget">
+      <div class="level-pill"><span>Niveau</span><b id="homeLevelVal">1</b></div>
+      <div class="xp-track"><div class="xp-fill" id="homeXpFill" style="width:0%"></div></div>
+      <div class="xp-text" id="homeXpText">0 / 120 XP</div>
+    </div>
+    <div class="menu-stats">
+      <div class="menu-stat"><span class="v" id="menuBest">0</span><span class="l">Record</span></div>
+      <div class="menu-stat"><span class="v" id="menuCrystals">0</span><span class="l">Cristaux</span></div>
+      <div class="menu-stat"><span class="v" id="menuAch">0/0</span><span class="l">Succès</span></div>
+    </div>
+    <button class="btn" id="startBtn">JOUER</button>
+    <button class="btn secondary hidden" id="openInfinite">♾️ MODE INFINI DIRECT</button>
+    <div class="btn-row">
+      <button class="btn secondary small" id="openSkins">🎨 SKINS</button>
+      <button class="btn secondary small" id="openAch">🏆 SUCCÈS</button>
+      <button class="btn secondary small" id="openBoosts">⚡ BOOSTS</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary small" id="openEncyclo">📖 ENCYCLOPÉDIE</button>
+      <button class="btn secondary small" id="openSettings">⚙️ PARAMÈTRES</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary small" id="openRules">📜 RÈGLES</button>
+    </div>
+    <div class="controls-hint" style="color:var(--muted); font-size:11px;">🖱️ Souris · 👆 Glisser · ⬆️⬇️ Flèches · P pour pause</div>
+  </div>
+
+  <!-- SKINS -->
+  <div class="overlay hidden" id="skinsScreen">
+    <h2 class="panel-title">Vaisseaux · Collection</h2>
+    <p class="subtitle" id="skinBalance">◆ 0 cristaux disponibles</p>
+    <div class="encyclo-tabs" id="skinTabs"></div>
+    <input type="text" class="skin-search" id="skinSearch" placeholder="🔍 Rechercher un skin par nom...">
+    <div class="skin-grid" id="skinGrid"></div>
+    <button class="btn secondary small" id="backFromSkins">RETOUR</button>
+  </div>
+
+  <!-- ACHIEVEMENTS -->
+  <div class="overlay hidden" id="achScreen">
+    <h2 class="panel-title">Succès</h2>
+    <p class="subtitle" id="achProgress">0 / 0 débloqués</p>
+    <div class="ach-list" id="achList"></div>
+    <button class="btn secondary small" id="backFromAch">RETOUR</button>
+  </div>
+
+  <!-- BOOSTS INFO -->
+  <div class="overlay hidden" id="boostsScreen">
+    <h2 class="panel-title">Boosts</h2>
+    <p class="subtitle">Des cristaux colorés apparaissent parfois dans le niveau. Récolte-les pour activer un effet temporaire.</p>
+    <div class="ach-list" id="boostList"></div>
+    <button class="btn secondary small" id="backFromBoosts">RETOUR</button>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="overlay hidden" id="pauseScreen">
+    <h2 class="panel-title">Pause</h2>
+    <p class="subtitle" id="pauseBoostsTitle">Boosts actifs</p>
+    <div class="ach-list" id="pauseBoosts" style="max-height:26vh;"></div>
+    <div class="btn-row" style="flex-direction:column; align-items:center;">
+      <button class="btn" id="resumeBtn">REPRENDRE</button>
+      <div class="btn-row">
+        <button class="btn secondary small" id="settingsFromPause">⚙️ PARAMÈTRES</button>
+        <button class="btn secondary small" id="encycloFromPause">📖 ENCYCLOPÉDIE</button>
+      </div>
+      <button class="btn secondary small" id="restartFromPause">RECOMMENCER</button>
+      <button class="btn secondary small" id="menuFromPause">MENU</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="overlay hidden" id="settingsScreen">
+    <h2 class="panel-title">Paramètres</h2>
+    <div class="settings-block">
+      <label class="settings-row">
+        <span>🎵 Musique</span>
+        <input type="range" id="musicVolumeRange" min="0" max="100" value="70">
+        <span class="settings-val" id="musicVolumeVal">70%</span>
+      </label>
+      <label class="settings-row">
+        <span>🔊 Effets sonores</span>
+        <input type="range" id="sfxVolumeRange" min="0" max="100" value="85">
+        <span class="settings-val" id="sfxVolumeVal">85%</span>
+      </label>
+    </div>
+    <button class="btn secondary small" id="resetSaveBtn">RÉINITIALISER LA PROGRESSION</button>
+    <button class="btn secondary small" id="backFromSettings">RETOUR</button>
+  </div>
+
+  <!-- RÈGLES DU JEU -->
+  <div class="overlay hidden" id="rulesScreen">
+    <h2 class="panel-title">Règles du jeu</h2>
+    <div class="ach-list" style="max-height:64vh; text-align:left;">
+      <div class="rules-block"><b>🎮 Contrôles</b><p>Déplace ton vaisseau verticalement avec la souris, le doigt (glisser) ou les flèches ⬆️⬇️. <b>P</b> ou <b>Échap</b> met en pause.</p></div>
+      <div class="rules-block"><b>🪐 Progression</b><p>Traverse les galaxies en accumulant des points. Chaque galaxie introduit de nouveaux obstacles. Au bout du voyage t'attend le <b>Gardien Stellaire</b>.</p></div>
+      <div class="rules-block"><b>💥 Obstacles</b><p>Tout contact avec un obstacle met fin à ta partie (sauf si un <b>Bouclier 🛡️</b> est actif). Certains obstacles préviennent avant de frapper (charge du laser, armement des mines, oscillation des portails) — reste attentif aux signaux visuels et sonores.</p></div>
+      <div class="rules-block"><b>💎 Cristaux & combo</b><p>Récolte les cristaux verts pour gagner des points et augmenter ton combo. Toucher un obstacle réinitialise le combo.</p></div>
+      <div class="rules-block"><b>⚡ Boosts</b><p>Bouclier, Ralenti, Aimant et Score ×2 apparaissent aléatoirement. Le boost <b>Ralenti 🕐</b> ralentit tous les obstacles — y compris les lasers et leur temps de charge/tir.</p></div>
+      <div class="rules-block"><b>👑 Le Gardien</b><p>Un boss avec plusieurs attaques. Sa musique d'approche s'intensifie à mesure qu'il se rapproche. À mi-vie, il <b>s'enrage</b> et devient plus rapide et agressif.</p></div>
+      <div class="rules-block"><b>♾️ Zone Infinie</b><p>Une fois le Gardien vaincu (ou via le mode infini direct), les galaxies laissent place à une zone sans fin. De nouveaux dangers apparaissent progressivement plus tu avances, et des <b>artefacts</b> à collectionner apparaissent — plus ton score est élevé, plus tu as de chances de trouver des artefacts rares (certaines raretés ne peuvent apparaître qu'après un certain score).</p></div>
+      <div class="rules-block"><b>📖 Encyclopédie</b><p>Retrouve tous les artefacts découverts par rareté, et consulte la liste des obstacles rencontrés avec leur utilité.</p></div>
+      <div class="rules-block"><b>🎨 Skins & 🏆 Succès</b><p>Débloque de nouveaux vaisseaux avec des cristaux ou en réalisant des succès.</p></div>
+    </div>
+    <button class="btn secondary small" id="backFromRules">RETOUR</button>
+  </div>
+
+  <!-- ENCYCLOPÉDIE ARTEFACTS -->
+  <div class="overlay hidden" id="encycloScreen">
+    <h2 class="panel-title">Encyclopédie</h2>
+    <p class="subtitle" id="encycloProgress">0 / 0 artefacts découverts</p>
+    <p class="subtitle" style="max-width:420px;">Les artefacts apparaissent uniquement dans la <b>Zone Infinie ∞</b>, après avoir vaincu le Gardien Stellaire.</p>
+    <div class="encyclo-tabs" id="encycloTabs"></div>
+    <div class="ach-list" id="encycloList" style="max-height:44vh;"></div>
+    <button class="btn secondary small" id="backFromEncyclo">RETOUR</button>
+  </div>
+
+  <!-- ARTEFACT DETAIL -->
+  <div class="overlay hidden" id="artifactDetailScreen" style="z-index:15;">
+    <div class="detail-card" id="artifactDetailCard"></div>
+    <button class="btn secondary small" id="backFromArtifactDetail">RETOUR</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="overScreen">
+    <span class="score-caption">Score final</span>
+    <p class="score-big" id="finalScore">0</p>
+    <div id="recordTag" class="record-tag hidden">🏆 NOUVEAU RECORD</div>
+    <div class="level-widget compact">
+      <div class="level-pill"><span>Niveau</span><b id="overLevelVal">1</b></div>
+      <div class="xp-track"><div class="xp-fill" id="overXpFill" style="width:0%"></div></div>
+      <div class="xp-text" id="overXpText">0 / 120 XP</div>
+    </div>
+    <p class="subtitle" id="overXpGained">+0 XP gagnés</p>
+    <p class="subtitle" id="overCrystals">◆ 0 cristaux récoltés</p>
+    <div class="ach-list hidden" id="infiniteRecapBlock" style="max-height:38vh; text-align:left;"></div>
+    <div class="btn-row">
+      <button class="btn" id="retryBtn">REJOUER</button>
+      <button class="btn secondary" id="shareBtn">COPIER LE SCORE</button>
+    </div>
+    <button class="btn secondary small" id="menuFromOver">MENU</button>
+    <div class="copied-msg" id="copiedMsg"></div>
+  </div>
+
+  <footer class="credit">NEON DODGE</footer>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ================= SAVE / PERSISTENCE =================
+  const SAVE_KEY = 'neonDodgeSaveV2';
+  let memorySave = null;
+  function defaultSave(){
+    return { best:0, totalCrystals:0, unlockedSkins:['default'], selectedSkin:'default', unlockedAchievements:[],
+      favoriteSkins:[], favoriteAchievements:[], infiniteUnlocked:false,
+      musicVolume:0.7, sfxVolume:0.85, collectedArtifacts:[], discoveredObstacles:[], tutorialSeen:false,
+      level:1, xp:0, artifactCounts:{} };
+  }
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(raw) return Object.assign(defaultSave(), JSON.parse(raw));
+    }catch(e){}
+    return memorySave || defaultSave();
+  }
+  function persistSave(){
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(save)); }
+    catch(e){ memorySave = save; }
+  }
+  let save = loadSave();
+
+  // ================= AUDIO =================
+  let actx;
+  function ensureAudio(){ if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); } }
+  function blip(freq, dur, type, vol, delay){
+    if(!actx) return;
+    const v = (vol||0.15) * (save.sfxVolume==null?1:save.sfxVolume);
+    if(v<=0.0001) return;
+    const t0 = actx.currentTime + (delay||0);
+    const osc = actx.createOscillator(); const gain = actx.createGain();
+    osc.type = type||'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(v, t0+0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+    osc.connect(gain); gain.connect(actx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+  }
+  function sfxCollect(combo){ const b=520+Math.min(combo,12)*35; blip(b,0.11,'triangle',0.16); blip(b*1.5,0.09,'sine',0.08,0.03); }
+  function sfxHit(){ blip(160,0.28,'sawtooth',0.22); blip(70,0.35,'square',0.18,0.03); }
+  function sfxStart(){ blip(440,0.12,'triangle',0.12); blip(660,0.14,'triangle',0.1,0.09); }
+  function sfxPower(){ blip(700,0.1,'sine',0.14); blip(980,0.12,'sine',0.1,0.06); blip(1300,0.12,'sine',0.08,0.12); }
+  function sfxAch(){ blip(523,0.1,'triangle',0.14); blip(659,0.1,'triangle',0.12,0.09); blip(784,0.16,'triangle',0.12,0.18); }
+  function sfxPause(){ blip(300,0.08,'sine',0.1); }
+  function sfxBossHit(){ blip(200,0.09,'square',0.1); }
+  function sfxVictory(){ blip(392,0.14,'triangle',0.15); blip(494,0.14,'triangle',0.13,0.11); blip(587,0.14,'triangle',0.12,0.22); blip(784,0.22,'triangle',0.14,0.33); }
+  function sfxLaserCharge(){ blip(900,0.16,'sawtooth',0.06); blip(1400,0.14,'sine',0.04,0.05); }
+  function sfxLaserFire(){ blip(180,0.24,'sawtooth',0.18); blip(2200,0.18,'sawtooth',0.1,0.01); }
+  // Rage roar when the boss enrages — low, guttural, filtered so it stays tense but not shrill/painful.
+  function sfxEnrage(){
+    if(!actx) return;
+    const v = 0.22 * (save.sfxVolume==null?1:save.sfxVolume);
+    if(v<=0.0001) return;
+    const t0=actx.currentTime;
+    const osc=actx.createOscillator(); osc.type='sawtooth';
+    const filt=actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.setValueAtTime(900,t0); filt.frequency.exponentialRampToValueAtTime(90,t0+0.9);
+    const gain=actx.createGain(); gain.gain.setValueAtTime(0,t0); gain.gain.linearRampToValueAtTime(v,t0+0.05); gain.gain.exponentialRampToValueAtTime(0.001,t0+0.9);
+    osc.frequency.setValueAtTime(160,t0); osc.frequency.exponentialRampToValueAtTime(58,t0+0.85);
+    osc.connect(filt); filt.connect(gain); gain.connect(actx.destination);
+    osc.start(t0); osc.stop(t0+0.95);
+    blip(70,0.5,'square',v*0.6,0.05);
+  }
+  // Short, quiet "incoming" cue right as a new obstacle spawns, pitched by danger type — a soft heads-up, not a jump-scare.
+  const OBSTACLE_WARN_PITCH = { asteroid:520, comet:640, swarmlet:580, laser:300, blackhole:210, mine:250, gate:340, spinner:400, homingOrb:460, pulsar:380, pincer:290, seeker:430, flare:410, voidwall:260 };
+  function sfxObstacleWarning(type){
+    const f = OBSTACLE_WARN_PITCH[type] || 500;
+    blip(f, 0.09, 'sine', 0.05); blip(f*1.5, 0.06, 'sine', 0.03, 0.05);
+  }
+  function sfxArtifact(rarity){
+    if(rarity==='divin'){ blip(660,0.18,'triangle',0.2); blip(880,0.18,'triangle',0.18,0.1); blip(1100,0.18,'triangle',0.16,0.2); blip(1320,0.3,'triangle',0.18,0.3); }
+    else if(rarity==='nonidentifie'){ blip(300,0.14,'sawtooth',0.12); blip(500+Math.random()*300,0.16,'sine',0.1,0.08); }
+    else if(rarity==='legendaire'){ blip(587,0.14,'triangle',0.16); blip(740,0.16,'triangle',0.14,0.1); }
+    else if(rarity==='mythique'){ blip(500,0.13,'triangle',0.15); blip(660,0.14,'triangle',0.12,0.08); }
+    else if(rarity==='rare'){ blip(440,0.12,'sine',0.14); blip(600,0.1,'sine',0.1,0.06); }
+    else { blip(392,0.1,'sine',0.13); }
+  }
+
+  // Music-volume-scaled blip (unlike blip(), which follows sfxVolume) — used for menu/boss musical accents.
+  function musicBlip(freq, dur, type, vol, delay){
+    if(!actx) return;
+    const v = (vol||0.1) * (save.musicVolume==null?1:save.musicVolume);
+    if(v<=0.0001) return;
+    const t0 = actx.currentTime + (delay||0);
+    const osc = actx.createOscillator(); const gain = actx.createGain();
+    osc.type = type||'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(v, t0+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+    osc.connect(gain); gain.connect(actx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+  }
+
+  // ---- Ambient background music bed (synthesized, looping soft pad) ----
+  let ambientGain=null, scaryGain=null, bossFightGain=null, menuGain=null, musicSetup=false;
+  let ambientBaseTarget=0;
+  // Guardian approach heartbeat — a slow low thump that speeds up as the boss nears.
+  let heartbeatNextT=0;
+  function setupMusic(){
+    if(musicSetup || !actx) return; musicSetup=true;
+    ambientGain = actx.createGain(); ambientGain.gain.value=0; ambientGain.connect(actx.destination);
+
+    const o1=actx.createOscillator(); o1.type='sine'; o1.frequency.value=98;
+    const o2=actx.createOscillator(); o2.type='sine'; o2.frequency.value=147.5;
+    const o3=actx.createOscillator(); o3.type='triangle'; o3.frequency.value=196;
+    const lfo=actx.createOscillator(); lfo.type='sine'; lfo.frequency.value=0.06;
+    const lfoGain=actx.createGain(); lfoGain.gain.value=6;
+    lfo.connect(lfoGain); lfoGain.connect(o2.frequency);
+    const filt=actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=750;
+    o1.connect(filt); o2.connect(filt); o3.connect(filt); filt.connect(ambientGain);
+    [o1,o2,o3,lfo].forEach(o=>o.start());
+
+    // occasional soft little notes over the pad — kept, they're gentle
+    function scheduleAmbientBlip(){
+      const wait = 3.5+Math.random()*5;
+      setTimeout(()=>{
+        if(ambientGain && ambientGain.gain.value>0.01){
+          const f=300+Math.random()*500;
+          blip(f, 0.5+Math.random()*0.4, 'sine', 0.03+Math.random()*0.02);
+        }
+        scheduleAmbientBlip();
+      }, wait*1000);
+    }
+    scheduleAmbientBlip();
+
+    // ---- "Guardian approaching" music: tense but gentle on the ears ----
+    // Two close, slightly detuned low sines (a soft dissonant beat) run through a
+    // heavy lowpass so there's no harsh top end — it reads as unsettling, not painful.
+    scaryGain = actx.createGain(); scaryGain.gain.value=0; scaryGain.connect(actx.destination);
+    const s1=actx.createOscillator(); s1.type='sine'; s1.frequency.value=110;
+    const s2=actx.createOscillator(); s2.type='sine'; s2.frequency.value=116.5; // close interval -> slow beating/tension
+    const s3=actx.createOscillator(); s3.type='triangle'; s3.frequency.value=55; // sub rumble
+    const s4=actx.createOscillator(); s4.type='triangle'; s4.frequency.value=155.6; // tritone above s1 — reads as "wrong", still soft via triangle+lowpass
+    const slfo=actx.createOscillator(); slfo.type='sine'; slfo.frequency.value=0.12;
+    const slfoGain=actx.createGain(); slfoGain.gain.value=3;
+    slfo.connect(slfoGain); slfoGain.connect(s2.frequency);
+    const sfilt=actx.createBiquadFilter(); sfilt.type='lowpass'; sfilt.frequency.value=420;
+    s1.connect(sfilt); s2.connect(sfilt); s3.connect(sfilt); s4.connect(sfilt);
+    // slow tremolo on the whole bed so it feels like it's "breathing" — tension without volume spikes
+    const tremolo=actx.createOscillator(); tremolo.type='sine'; tremolo.frequency.value=0.9;
+    const tremoloGain=actx.createGain(); tremoloGain.gain.value=0.35;
+    const tremoloOut=actx.createGain(); tremoloOut.gain.value=0.75;
+    tremolo.connect(tremoloGain); tremoloGain.connect(tremoloOut.gain);
+    sfilt.connect(tremoloOut); tremoloOut.connect(scaryGain);
+    [s1,s2,s3,s4,slfo,tremolo].forEach(o=>o.start());
+
+    // slow, quiet heartbeat thump that speeds up as the approach music gets louder
+    function scheduleHeartbeat(){
+      setTimeout(()=>{
+        if(actx && scaryGain && scaryGain.gain.value>0.01 && actx.currentTime>=heartbeatNextT){
+          const intensity = Math.min(1, scaryGain.gain.value/0.22);
+          const v = 0.05+intensity*0.09;
+          blip(58,0.16,'sine',v); blip(46,0.22,'sine',v*0.8,0.09);
+          heartbeatNextT = actx.currentTime + Math.max(0.45, 1.15-intensity*0.7);
+        }
+        scheduleHeartbeat();
+      }, 150);
+    }
+    scheduleHeartbeat();
+
+    // ---- Boss FIGHT music — a driving, dissonant, genuinely unsettling theme, distinct from the softer "approach" bed above.
+    // Plays for the whole fight (not just the approach), and gets faster/harsher once the boss enrages. ----
+    bossFightGain = actx.createGain(); bossFightGain.gain.value=0; bossFightGain.connect(actx.destination);
+    const bf1=actx.createOscillator(); bf1.type='sawtooth'; bf1.frequency.value=55;   // sub bass drone
+    const bf2=actx.createOscillator(); bf2.type='square';   bf2.frequency.value=58.3; // dissonant beating against bf1
+    const bffilt=actx.createBiquadFilter(); bffilt.type='lowpass'; bffilt.frequency.value=340;
+    bf1.connect(bffilt); bf2.connect(bffilt);
+    const bfPulseGain=actx.createGain(); bfPulseGain.gain.value=0.7;
+    bffilt.connect(bfPulseGain); bfPulseGain.connect(bossFightGain);
+    const bfPulseLfo=actx.createOscillator(); bfPulseLfo.type='square'; bfPulseLfo.frequency.value=2.4; // throbbing "heartbeat" gate
+    const bfPulseLfoGain=actx.createGain(); bfPulseLfoGain.gain.value=0.3;
+    bfPulseLfo.connect(bfPulseLfoGain); bfPulseLfoGain.connect(bfPulseGain.gain);
+    [bf1,bf2,bfPulseLfo].forEach(o=>o.start());
+    // periodic dissonant stabs — the "terrifying" accent on top of the drone, tempo/pitch rise when the boss is enraged
+    let bossStabTimer;
+    function scheduleBossStab(){
+      const enraged = state.boss && state.boss.enraged;
+      const wait = enraged ? 0.32+Math.random()*0.18 : 0.55+Math.random()*0.35;
+      bossStabTimer = setTimeout(()=>{
+        if(actx && bossFightGain && bossFightGain.gain.value>0.02){
+          const base = enraged ? 130+Math.random()*50 : 90+Math.random()*35;
+          musicBlip(base, enraged?0.22:0.3, 'sawtooth', enraged?0.11:0.075);
+          musicBlip(base*1.5, 0.16, 'square', enraged?0.05:0.03, 0.03);
+        }
+        scheduleBossStab();
+      }, wait*1000);
+    }
+    scheduleBossStab();
+
+    // ---- Menu music — short, gentle looping motif for the start screen, sets the mood before playing ----
+    menuGain = actx.createGain(); menuGain.gain.value=0; menuGain.connect(actx.destination);
+    const mo1=actx.createOscillator(); mo1.type='sine'; mo1.frequency.value=196;
+    const mo2=actx.createOscillator(); mo2.type='triangle'; mo2.frequency.value=294;
+    const mofilt=actx.createBiquadFilter(); mofilt.type='lowpass'; mofilt.frequency.value=1200;
+    mo1.connect(mofilt); mo2.connect(mofilt); mofilt.connect(menuGain);
+    [mo1,mo2].forEach(o=>o.start());
+    const MENU_MOTIF = [392,440,494,587,494,440]; let menuMotifIdx=0;
+    function scheduleMenuMotif(){
+      setTimeout(()=>{
+        if(actx && menuGain && menuGain.gain.value>0.01){
+          musicBlip(MENU_MOTIF[menuMotifIdx%MENU_MOTIF.length], 0.9, 'triangle', 0.05);
+          menuMotifIdx++;
+        }
+        scheduleMenuMotif();
+      }, 950);
+    }
+    scheduleMenuMotif();
+  }
+  let bossFightBaseTarget=0, menuBaseTarget=0;
+  function baseTargetRefFor(g){
+    if(g===ambientGain) return v=>{ if(v===undefined) return ambientBaseTarget; ambientBaseTarget=v; };
+    if(g===bossFightGain) return v=>{ if(v===undefined) return bossFightBaseTarget; bossFightBaseTarget=v; };
+    if(g===menuGain) return v=>{ if(v===undefined) return menuBaseTarget; menuBaseTarget=v; };
+    return null;
+  }
+  function musicCut(g){ if(g) g.gain.value=0; const ref=baseTargetRefFor(g); if(ref) ref(0); }
+  function musicFadeIn(g, target, dur){
+    if(!g || !actx) return;
+    let applied = target;
+    const ref = baseTargetRefFor(g);
+    if(ref){ ref(target); applied = target * (save.musicVolume==null?1:save.musicVolume); }
+    const t=actx.currentTime;
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t);
+    g.gain.linearRampToValueAtTime(applied, t+(dur||1));
+  }
+  function musicFadeOut(g, dur){
+    const ref = baseTargetRefFor(g); if(ref) ref(0);
+    if(!g || !actx) return;
+    const t=actx.currentTime;
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t);
+    g.gain.linearRampToValueAtTime(0, t+(dur||1));
+  }
+  function applyMusicVolumeLive(){
+    if(!actx) return;
+    [[ambientGain,ambientBaseTarget],[bossFightGain,bossFightBaseTarget],[menuGain,menuBaseTarget]].forEach(([g,base])=>{
+      if(!g || base<=0) return;
+      const target = base * (save.musicVolume==null?1:save.musicVolume);
+      const t=actx.currentTime;
+      g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(target, t+0.25);
+    });
+  }
+
+  // ================= GALAXIES =================
+  const GALAXIES = [
+    { name:"Ceinture d'Astéroïdes", threshold:0,    bg:[[11,14,26],[19,26,48]],  types:['asteroid'], decorColor:'#6C7FBF' },
+    { name:"Nébuleuse Écarlate",    threshold:500,  bg:[[24,10,22],[46,14,34]],  types:['asteroid','comet'], decorColor:'#FF6FA8' },
+    { name:"Secteur Sentinelle",    threshold:1100, bg:[[8,16,26],[10,30,42]],   types:['asteroid','comet','laser'], decorColor:'#3ADBC7' },
+    { name:"Vortex Sombre",         threshold:1800, bg:[[10,8,26],[24,10,42]],   types:['asteroid','comet','laser','blackhole'], decorColor:'#9B7BFF' },
+    { name:"Essaim Stellaire",      threshold:2600, bg:[[16,6,16],[36,8,24]],    types:['asteroid','comet','laser','blackhole','swarmlet'], decorColor:'#FF2E88' },
+    { name:"Champ de Débris",       threshold:3500, bg:[[6,10,24],[14,22,46]],   types:['asteroid','comet','laser','blackhole','swarmlet'], decorColor:'#5B7FFF' },
+    { name:"Anneau de Glace",       threshold:4500, bg:[[6,18,28],[8,34,44]],    types:['asteroid','comet','laser','blackhole','swarmlet'], decorColor:'#4FE0FF' },
+    { name:"Faille Quantique",      threshold:5600, bg:[[18,6,30],[34,8,52]],    types:['asteroid','comet','laser','blackhole','swarmlet'], decorColor:'#C96BFF' },
+    { name:"Cœur de la Galaxie",    threshold:6800, bg:[[26,6,10],[50,10,18]],   types:['asteroid','comet','laser','blackhole','swarmlet'], decorColor:'#FF6A3C' },
+    { name:"Antre du Gardien",      threshold:8200, bg:[[20,4,14],[46,8,28]],    types:['asteroid','comet','laser','blackhole','swarmlet'], boss:true, decorColor:'#FF2E3A' },
+  ];
+  const BOSS_INDEX = GALAXIES.length-1;
+  const INFINITE_PALETTES = [
+    [[16,6,16],[36,8,24]], [[8,16,26],[10,30,42]], [[10,8,26],[24,10,42]],
+    [[24,10,22],[46,14,34]], [[6,10,24],[14,22,46]], [[26,6,10],[50,10,18]], [[18,6,30],[34,8,52]]
+  ];
+  const INFINITE_PALETTE_DECOR = ['#FF2E88','#3ADBC7','#9B7BFF','#FF6FA8','#5B7FFF','#FF6A3C','#C96BFF'];
+  function galaxyIndexForScore(score){
+    let idx=0; for(let i=0;i<GALAXIES.length;i++){ if(score>=GALAXIES[i].threshold) idx=i; } return idx;
+  }
+
+  // ================= SKINS =================
+  function eyesOn(c,px,py,r){
+    c.fillStyle='#06131a';
+    c.beginPath(); c.ellipse(px+r*0.15, py-r*0.18, r*0.16, r*0.2, 0,0,Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(px+r*0.15, py+r*0.22, r*0.16, r*0.2, 0,0,Math.PI*2); c.fill();
+    c.fillStyle='#fff';
+    c.beginPath(); c.arc(px+r*0.19, py-r*0.22, r*0.06,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc(px+r*0.19, py+r*0.18, r*0.06,0,Math.PI*2); c.fill();
+  }
+  function roundRectOn(c,x,y,w,h,rad){
+    c.moveTo(x+rad,y); c.arcTo(x+w,y,x+w,y+h,rad); c.arcTo(x+w,y+h,x,y+h,rad);
+    c.arcTo(x,y+h,x,y,rad); c.arcTo(x,y,x+w,y,rad);
+  }
+  function starPathOn(c,px,py,r,points,inner){
+    c.beginPath();
+    for(let i=0;i<points*2;i++){
+      const ang=i/(points*2)*Math.PI*2; const rr=i%2===0?r:r*inner;
+      const x=px+Math.cos(ang)*rr, y=py+Math.sin(ang)*rr;
+      if(i===0) c.moveTo(x,y); else c.lineTo(x,y);
+    }
+    c.closePath();
+  }
+
+  // Every skin draw fn takes (c, px, py, r, t) where c is a CanvasRenderingContext2D (game ctx or mini-preview ctx)
+  const SKINS = {
+    default:{ id:'default', name:'Voyageur', unlock:{type:'free'}, glow:'#00F0FF',
+      draw(c,px,py,r,t){
+        const g=c.createLinearGradient(px-r,py,px+r,py); g.addColorStop(0,'#00F0FF'); g.addColorStop(1,'#B4FF39');
+        c.fillStyle=g; c.shadowColor='#00F0FF'; c.shadowBlur=22;
+        c.beginPath(); c.ellipse(px,py,r*1.05,r*0.92,0,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        eyesOn(c,px,py,r);
+      }},
+    comet:{ id:'comet', name:'Comète', unlock:{type:'crystals', cost:60}, glow:'#FFC93C',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#FF6A3C'; c.shadowBlur=24;
+        for(let i=0;i<5;i++){
+          c.globalAlpha = 0.5-i*0.09; c.fillStyle = i%2===0? '#FFC93C':'#FF6A3C';
+          c.beginPath(); c.arc(px-r*0.9-i*7, py, r*0.5*(1-i*0.13), 0, Math.PI*2); c.fill();
+        }
+        c.globalAlpha=1;
+        const g=c.createRadialGradient(px,py,2,px,py,r); g.addColorStop(0,'#FFF3C4'); g.addColorStop(1,'#FF8A3C');
+        c.fillStyle=g; c.beginPath(); c.arc(px,py,r,0,Math.PI*2); c.fill();
+        c.shadowBlur=0; eyesOn(c,px,py,r); c.restore();
+      }},
+    spectre:{ id:'spectre', name:'Spectre', unlock:{type:'crystals', cost:150}, glow:'#9B7BFF',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#9B7BFF'; c.shadowBlur=22; c.globalAlpha=0.88;
+        c.fillStyle='#B7A3FF';
+        c.beginPath(); c.moveTo(px-r,py-r*0.4); c.arc(px,py-r*0.3,r,Math.PI,0); c.lineTo(px+r,py+r*0.6);
+        for(let i=0;i<4;i++){ const wx=px+r-(i+1)*(r*2/4); const wy=py+r*0.6+Math.sin(t*4+i)*4+(i%2===0?r*0.35:0); c.lineTo(wx,wy); }
+        c.closePath(); c.fill(); c.globalAlpha=1; c.shadowBlur=0;
+        eyesOn(c,px,py-r*0.15,r*0.9); c.restore();
+      }},
+    robot:{ id:'robot', name:'Robot', unlock:{type:'achievement', id:'combo20'}, glow:'#FFC93C',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#FFC93C'; c.shadowBlur=20; c.fillStyle='#FFC93C';
+        const s=r*1.5;
+        c.beginPath(); roundRectOn(c,px-s/2,py-s/2,s,s,r*0.3); c.fill(); c.shadowBlur=0;
+        c.fillStyle='#06131a'; c.fillRect(px-s*0.32,py-s*0.06,s*0.64,s*0.22);
+        c.strokeStyle='#FFC93C'; c.lineWidth=3; c.beginPath(); c.moveTo(px,py-s/2); c.lineTo(px,py-s/2-8); c.stroke();
+        const blink = Math.sin(t*8)>0.3 ? '#FF2E88':'#7a1030';
+        c.fillStyle=blink; c.beginPath(); c.arc(px,py-s/2-10,3.5,0,Math.PI*2); c.fill();
+        c.restore();
+      }},
+    etoile:{ id:'etoile', name:'Étoile Filante', unlock:{type:'achievement', id:'galaxy3'}, glow:'#FF2E88',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*1.2); c.shadowColor='#FF2E88'; c.shadowBlur=24; c.fillStyle='#FF6FB0';
+        starPathOn(c,0,0,r*1.15,5,0.43); c.fill(); c.restore();
+        eyesOn(c,px,py,r*0.7);
+      }},
+    arcenciel:{ id:'arcenciel', name:'Arc-en-ciel', unlock:{type:'crystals', cost:400}, glow:'#B4FF39',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#fff'; c.shadowBlur=26;
+        const g=c.createLinearGradient(px-r,py-r,px+r,py+r);
+        g.addColorStop(0,'#00F0FF'); g.addColorStop(0.33,'#B4FF39'); g.addColorStop(0.66,'#FFC93C'); g.addColorStop(1,'#FF2E88');
+        c.fillStyle=g; c.beginPath(); c.arc(px,py,r,0,Math.PI*2); c.fill(); c.restore();
+        eyesOn(c,px,py,r);
+      }},
+    lune:{ id:'lune', name:'Lune', unlock:{type:'achievement', id:'survive90'}, glow:'#C9D6F5',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#C9D6F5'; c.shadowBlur=18;
+        const g=c.createRadialGradient(px-r*0.3,py-r*0.3,1,px,py,r); g.addColorStop(0,'#F4F7FF'); g.addColorStop(1,'#9AA6C4');
+        c.fillStyle=g; c.beginPath(); c.arc(px,py,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.fillStyle='rgba(120,130,160,0.5)';
+        c.beginPath(); c.arc(px-r*0.35,py-r*0.15,r*0.18,0,Math.PI*2); c.fill();
+        c.beginPath(); c.arc(px+r*0.15,py+r*0.3,r*0.13,0,Math.PI*2); c.fill();
+        c.beginPath(); c.arc(px+r*0.3,py-r*0.35,r*0.1,0,Math.PI*2); c.fill();
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    cristal:{ id:'cristal', name:'Cristal', unlock:{type:'crystals', cost:220}, glow:'#7CF6FF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#7CF6FF'; c.shadowBlur=22;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#E8FEFF'); g.addColorStop(1,'#4FD9F0');
+        c.fillStyle=g;
+        c.beginPath(); c.moveTo(0,-r*1.15); c.lineTo(r*0.85,0); c.lineTo(0,r*1.15); c.lineTo(-r*0.85,0); c.closePath(); c.fill();
+        c.strokeStyle='rgba(255,255,255,0.6)'; c.lineWidth=1.5;
+        c.beginPath(); c.moveTo(0,-r*1.15); c.lineTo(0,r*1.15); c.stroke();
+        c.restore(); eyesOn(c,px,py,r*0.75);
+      }},
+    ombre:{ id:'ombre', name:'Ombre', unlock:{type:'achievement', id:'galaxy7'}, glow:'#5B6BA8',
+      draw(c,px,py,r,t){
+        c.save(); c.globalAlpha=0.92; c.shadowColor='#00F0FF'; c.shadowBlur=14;
+        c.fillStyle='#11162A'; c.beginPath(); c.ellipse(px,py,r*1.05,r*0.92,0,0,Math.PI*2); c.fill();
+        c.strokeStyle='rgba(0,240,255,0.7)'; c.lineWidth=1.5; c.beginPath(); c.ellipse(px,py,r*1.05,r*0.92,0,0,Math.PI*2); c.stroke();
+        c.shadowBlur=8; c.fillStyle='#00F0FF';
+        c.beginPath(); c.arc(px+r*0.15,py-r*0.18,r*0.09,0,Math.PI*2); c.fill();
+        c.beginPath(); c.arc(px+r*0.15,py+r*0.22,r*0.09,0,Math.PI*2); c.fill();
+        c.restore();
+      }},
+    nova:{ id:'nova', name:'Nova', unlock:{type:'crystals', cost:550}, glow:'#FFE7A0',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.6); c.shadowColor='#FFD37A'; c.shadowBlur=28;
+        c.fillStyle='#FFE7A0'; starPathOn(c,0,0,r*1.25,8,0.55); c.fill();
+        c.restore();
+        const g=ctxSafeRadial(c,px,py,r*0.75); c.fillStyle=g;
+        c.beginPath(); c.arc(px,py,r*0.75,0,Math.PI*2); c.fill();
+        eyesOn(c,px,py,r*0.6);
+      }},
+    gardien:{ id:'gardien', name:'Petit Gardien', unlock:{type:'achievement', id:'bossDefeated'}, glow:'#FF2E88',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#9B7BFF'; c.shadowBlur=20;
+        for(let i=0;i<5;i++){
+          const ang = i/5*Math.PI*2 + t*1.5;
+          const tx = px+Math.cos(ang)*r*1.3, ty=py+Math.sin(ang)*r*1.3;
+          c.strokeStyle='rgba(155,123,255,0.8)'; c.lineWidth=3; c.lineCap='round';
+          c.beginPath(); c.moveTo(px,py); c.quadraticCurveTo(px+Math.cos(ang)*r*0.7, py+Math.sin(ang)*r*0.7, tx,ty); c.stroke();
+        }
+        const g=c.createRadialGradient(px,py,1,px,py,r); g.addColorStop(0,'#3a1a4e'); g.addColorStop(1,'#160a22');
+        c.fillStyle=g; c.beginPath(); c.arc(px,py,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.fillStyle='#FF2E88'; c.shadowColor='#FF2E88'; c.shadowBlur=14;
+        c.beginPath(); c.arc(px,py,r*0.4,0,Math.PI*2); c.fill();
+        c.fillStyle='#06131a'; c.beginPath(); c.arc(px,py,r*0.16,0,Math.PI*2); c.fill();
+        c.restore();
+      }},
+    prisme:{ id:'prisme', name:'Prisme', unlock:{type:'crystals', cost:900}, glow:'#ffffff',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.9); c.shadowColor='#fff'; c.shadowBlur=24;
+        const cols=['#00F0FF','#B4FF39','#FFC93C','#FF2E88','#9B7BFF'];
+        for(let i=0;i<5;i++){
+          const a0=i/5*Math.PI*2, a1=(i+1)/5*Math.PI*2;
+          c.fillStyle=cols[i];
+          c.beginPath(); c.moveTo(0,0); c.arc(0,0,r*1.1,a0,a1); c.closePath(); c.fill();
+        }
+        c.restore(); eyesOn(c,px,py,r*0.65);
+      }},
+    dragon:{ id:'dragon', name:'Dragon Astral', unlock:{type:'crystals', cost:300}, glow:'#FF5E3A',
+      draw(c,px,py,r,t){
+        c.save();
+        c.shadowColor='#FF5E3A'; c.shadowBlur=18; c.fillStyle='rgba(255,94,58,0.55)';
+        const wingFlap = Math.sin(t*6)*0.25;
+        [-1,1].forEach(side=>{
+          c.beginPath();
+          c.moveTo(px, py);
+          c.quadraticCurveTo(px+side*r*1.6, py-r*(1.1+wingFlap), px+side*r*2.3, py-r*0.2);
+          c.quadraticCurveTo(px+side*r*1.3, py+r*0.1, px, py+r*0.35);
+          c.closePath(); c.fill();
+        });
+        c.shadowBlur=22; c.fillStyle='#FF6A3C';
+        c.beginPath(); c.ellipse(px,py,r*1.05,r*0.9,0,0,Math.PI*2); c.fill();
+        c.shadowBlur=0;
+        c.strokeStyle='#7A2E12'; c.lineWidth=2.5; c.lineCap='round';
+        c.beginPath(); c.moveTo(px-r*0.3,py-r*0.85); c.lineTo(px-r*0.45,py-r*1.3); c.stroke();
+        c.beginPath(); c.moveTo(px+r*0.3,py-r*0.85); c.lineTo(px+r*0.45,py-r*1.3); c.stroke();
+        eyesOn(c,px,py,r);
+        c.restore();
+      }},
+    cyber:{ id:'cyber', name:'Cyberdrone', unlock:{type:'crystals', cost:180}, glow:'#39FFDB',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#39FFDB'; c.shadowBlur=20;
+        c.fillStyle='#123B3A'; c.beginPath();
+        for(let i=0;i<6;i++){ const ang=i/6*Math.PI*2+Math.PI/6; const x=Math.cos(ang)*r*1.1, y=Math.sin(ang)*r*1.1; i===0?c.moveTo(x,y):c.lineTo(x,y); }
+        c.closePath(); c.fill();
+        c.strokeStyle='#39FFDB'; c.lineWidth=1.6; c.stroke();
+        c.shadowBlur=0;
+        const scanY = ((t*40)%(r*2))-r;
+        c.save(); c.beginPath(); c.rect(-r,-r,r*2,r*2); c.clip();
+        c.fillStyle='rgba(57,255,219,0.35)'; c.fillRect(-r, scanY, r*2, 3);
+        c.restore();
+        c.restore();
+        eyesOn(c,px,py,r*0.8);
+      }},
+    phenix:{ id:'phenix', name:'Phénix', unlock:{type:'achievement', id:'score1000'}, glow:'#FFB13C',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(Math.sin(t*2)*0.08);
+        c.shadowColor='#FF8A3C'; c.shadowBlur=26;
+        const g=c.createRadialGradient(0,0,1,0,0,r*1.3); g.addColorStop(0,'#FFF3C4'); g.addColorStop(0.6,'#FFB13C'); g.addColorStop(1,'#FF5A2E');
+        c.fillStyle=g;
+        c.beginPath();
+        const spikes=10;
+        for(let i=0;i<spikes*2;i++){ const ang=i/(spikes*2)*Math.PI*2; const rr = i%2===0? r*1.25 : r*0.6+Math.sin(t*8+i)*3;
+          const x=Math.cos(ang)*rr, y=Math.sin(ang)*rr; i===0?c.moveTo(x,y):c.lineTo(x,y); }
+        c.closePath(); c.fill();
+        c.restore();
+        eyesOn(c,px,py,r*0.75);
+      }},
+    aurore:{ id:'aurore', name:'Aurore Boréale', unlock:{type:'achievement', id:'galaxy5'}, glow:'#7BFFDB',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#7BFFDB'; c.shadowBlur=22;
+        const cols=['#7BFFDB','#9B7BFF','#7BC8FF'];
+        for(let i=0;i<3;i++){
+          c.globalAlpha=0.5;
+          c.fillStyle=cols[i];
+          c.beginPath();
+          for(let a=0;a<=Math.PI*2+0.1;a+=0.2){
+            const rr = r*(0.9+i*0.18) + Math.sin(a*3+t*3+i)*4;
+            const x=Math.cos(a)*rr, y=Math.sin(a)*rr;
+            a===0?c.moveTo(x,y):c.lineTo(x,y);
+          }
+          c.closePath(); c.fill();
+        }
+        c.globalAlpha=1; c.shadowBlur=0;
+        c.restore();
+        eyesOn(c,px,py,r*0.8);
+      }},
+    titan:{ id:'titan', name:'Titan', unlock:{type:'achievement', id:'crystals500'}, glow:'#C9A24B',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#C9A24B'; c.shadowBlur=16;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#8a8f9c'); g.addColorStop(1,'#4b4f5a');
+        c.fillStyle=g;
+        c.beginPath();
+        const sides=6;
+        for(let i=0;i<sides;i++){ const ang=i/sides*Math.PI*2+Math.PI/6; const x=Math.cos(ang)*r*1.15, y=Math.sin(ang)*r*1.15; i===0?c.moveTo(x,y):c.lineTo(x,y); }
+        c.closePath(); c.fill();
+        c.shadowBlur=0;
+        c.fillStyle='#C9A24B';
+        [[-r*0.5,-r*0.4],[r*0.5,-r*0.4],[-r*0.5,r*0.4],[r*0.5,r*0.4]].forEach(([x,y])=>{ c.beginPath(); c.arc(x,y,r*0.1,0,Math.PI*2); c.fill(); });
+        c.restore();
+        eyesOn(c,px,py,r*0.8);
+      }},
+    neant:{ id:'neant', name:'Néant', unlock:{type:'achievement', id:'infiniteSurvivor'}, glow:'#9B7BFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*1.4);
+        c.shadowColor='#9B7BFF'; c.shadowBlur=24;
+        c.strokeStyle='rgba(155,123,255,0.85)'; c.lineWidth=2.5;
+        for(let i=0;i<3;i++){ c.beginPath(); c.ellipse(0,0,r*(1+i*0.28), r*0.42*(1+i*0.28), 0.4, 0, Math.PI*1.5); c.stroke(); }
+        c.shadowBlur=0;
+        const g=c.createRadialGradient(0,0,1,0,0,r); g.addColorStop(0,'#1a0a2e'); g.addColorStop(1,'#000');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*0.85,0,Math.PI*2); c.fill();
+        c.restore();
+        c.save(); c.fillStyle='#C9B8FF'; c.shadowColor='#9B7BFF'; c.shadowBlur=8;
+        c.beginPath(); c.ellipse(px+r*0.18,py-r*0.12,r*0.13,r*0.05,0,0,Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(px+r*0.18,py+r*0.16,r*0.13,r*0.05,0,0,Math.PI*2); c.fill();
+        c.restore();
+      }},
+    empereur:{ id:'empereur', name:'Empereur Stellaire', unlock:{type:'crystals', cost:1200}, glow:'#FFD700',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FFD700'; c.shadowBlur=28;
+        const g=c.createRadialGradient(0,0,1,0,0,r); g.addColorStop(0,'#FFF6D6'); g.addColorStop(1,'#D9A400');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+        c.shadowBlur=0;
+        c.fillStyle='#FFD700';
+        for(let i=0;i<5;i++){
+          const ang=-Math.PI/2+(i-2)*0.32;
+          const bx=Math.cos(ang)*r*0.9, by=Math.sin(ang)*r*0.9-r*0.1;
+          const tx=Math.cos(ang)*r*1.5, ty=Math.sin(ang)*r*1.5-r*0.3;
+          c.beginPath(); c.moveTo(bx-4,by); c.lineTo(tx,ty); c.lineTo(bx+4,by); c.closePath(); c.fill();
+        }
+        c.restore();
+        eyesOn(c,px,py,r*0.85);
+      }},
+    glacier:{ id:'glacier', name:'Glacier', unlock:{type:'crystals', cost:90}, glow:'#8FE3FF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#8FE3FF'; c.shadowBlur=18;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#EAFBFF'); g.addColorStop(1,'#4FBEDB');
+        c.fillStyle=g;
+        c.beginPath();
+        for(let i=0;i<6;i++){ const ang=i/6*Math.PI*2; const rr=r*(i%2===0?1.1:0.85);
+          const x=Math.cos(ang)*rr,y=Math.sin(ang)*rr; i===0?c.moveTo(x,y):c.lineTo(x,y); }
+        c.closePath(); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='rgba(255,255,255,0.6)'; c.lineWidth=1; c.beginPath(); c.moveTo(0,-r); c.lineTo(0,r); c.stroke();
+        c.restore();
+        eyesOn(c,px,py,r*0.85);
+      }},
+    corail:{ id:'corail', name:'Corail', unlock:{type:'crystals', cost:260}, glow:'#FF7FA8',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FF7FA8'; c.shadowBlur=20;
+        c.fillStyle='#FF7FA8';
+        for(let i=0;i<5;i++){
+          const ang=i/5*Math.PI*2-Math.PI/2+Math.sin(t*2+i)*0.06;
+          const len=r*1.1;
+          c.beginPath();
+          c.moveTo(0,0);
+          c.quadraticCurveTo(Math.cos(ang)*len*0.5, Math.sin(ang)*len*0.5, Math.cos(ang)*len, Math.sin(ang)*len);
+          c.lineWidth=r*0.4; c.strokeStyle='#FF7FA8'; c.lineCap='round'; c.stroke();
+        }
+        c.shadowBlur=0;
+        const g=c.createRadialGradient(0,0,1,0,0,r*0.7); g.addColorStop(0,'#FFD6E6'); g.addColorStop(1,'#FF5C93');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*0.7,0,Math.PI*2); c.fill();
+        c.restore();
+        eyesOn(c,px,py,r*0.6);
+      }},
+    fulgur:{ id:'fulgur', name:'Fulgur', unlock:{type:'achievement', id:'speedrun500'}, glow:'#FFF35C',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FFF35C'; c.shadowBlur=26;
+        c.fillStyle='#FFF35C';
+        c.beginPath();
+        c.moveTo(-r*0.2,-r*1.2); c.lineTo(r*0.35,-r*0.15); c.lineTo(-r*0.05,-r*0.05);
+        c.lineTo(r*0.3,r*1.2); c.lineTo(-r*0.4,r*0.05); c.lineTo(r*0.05,-r*0.05);
+        c.closePath(); c.fill();
+        c.shadowBlur=0;
+        const g=c.createRadialGradient(0,0,1,0,0,r*0.55); g.addColorStop(0,'#FFFFF0'); g.addColorStop(1,'#FFE066');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*0.5,0,Math.PI*2); c.fill();
+        c.restore();
+        eyesOn(c,px,py,r*0.45);
+      }},
+    eclipse:{ id:'eclipse', name:'Éclipse', unlock:{type:'achievement', id:'infiniteMaster'}, glow:'#5B4B8A',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.4);
+        c.shadowColor='#FFD98A'; c.shadowBlur=26;
+        c.strokeStyle='rgba(255,217,138,0.9)'; c.lineWidth=r*0.16;
+        c.beginPath(); c.arc(0,0,r*0.98,0,Math.PI*2); c.stroke();
+        c.shadowBlur=0;
+        c.fillStyle='#0B0A14'; c.beginPath(); c.arc(0,0,r*0.9,0,Math.PI*2); c.fill();
+        c.restore();
+        eyesOn(c,px,py,r*0.55);
+      }},
+    souverain:{ id:'souverain', name:'Souverain', unlock:{type:'achievement', id:'crystals1000'}, glow:'#D4AF37',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#D4AF37'; c.shadowBlur=30;
+        const g=c.createRadialGradient(0,0,1,0,0,r); g.addColorStop(0,'#3d1b52'); g.addColorStop(1,'#160a22');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill();
+        c.shadowBlur=0;
+        c.strokeStyle='#D4AF37'; c.lineWidth=2.5; c.beginPath(); c.arc(0,0,r*1.08,0,Math.PI*2); c.stroke();
+        c.fillStyle='#D4AF37';
+        for(let i=0;i<7;i++){
+          const ang=-Math.PI/2+(i-3)*0.28;
+          const bx=Math.cos(ang)*r*0.95, by=Math.sin(ang)*r*0.95;
+          const tx=Math.cos(ang)*r*1.4, ty=Math.sin(ang)*r*1.4;
+          c.beginPath(); c.moveTo(bx-2.5,by); c.lineTo(tx,ty); c.lineTo(bx+2.5,by); c.closePath(); c.fill();
+        }
+        c.restore();
+        eyesOn(c,px,py,r*0.7);
+      }},
+    mirage:{ id:'mirage', name:'Mirage', unlock:{type:'crystals', cost:130}, glow:'#7FFFC9',
+      draw(c,px,py,r,t){
+        c.save(); c.globalAlpha=0.5+0.25*Math.sin(t*3); c.shadowColor='#7FFFC9'; c.shadowBlur=20;
+        const g=c.createLinearGradient(px-r,py-r,px+r,py+r); g.addColorStop(0,'#B8FFEA'); g.addColorStop(1,'#26C99A');
+        c.fillStyle=g; c.beginPath(); c.ellipse(px,py,r*1.05,r*0.92,0,0,Math.PI*2); c.fill();
+        c.globalAlpha=1; c.shadowBlur=0; eyesOn(c,px,py,r); c.restore();
+      }},
+    lagon:{ id:'lagon', name:'Lagon', unlock:{type:'crystals', cost:75}, glow:'#39D6FF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#39D6FF'; c.shadowBlur=18;
+        const g=c.createRadialGradient(0,0,1,0,0,r); g.addColorStop(0,'#DFFBFF'); g.addColorStop(1,'#0E8FB8');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='rgba(255,255,255,0.55)'; c.lineWidth=1.4;
+        for(let i=0;i<2;i++){ c.beginPath(); c.arc(0,0,r*(0.55+i*0.3),0.3,2.6); c.stroke(); }
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    pixel:{ id:'pixel', name:'Pixel Rétro', unlock:{type:'crystals', cost:110}, glow:'#39FF6A',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#39FF6A'; c.shadowBlur=14;
+        c.fillStyle='#0F1A0F';
+        const s=r*1.5, cell=s/6;
+        for(let yy=0;yy<6;yy++) for(let xx=0;xx<6;xx++){
+          const on = (xx===1||xx===4||yy===0||yy===5|| (xx>1&&xx<4&&yy>1&&yy<4));
+          if(on){ c.fillStyle='#39FF6A'; c.fillRect(-s/2+xx*cell, -s/2+yy*cell, cell-1, cell-1); }
+        }
+        c.restore();
+      }},
+    origami:{ id:'origami', name:'Origami', unlock:{type:'crystals', cost:340}, glow:'#FF9BD6',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(Math.sin(t*1.5)*0.06); c.shadowColor='#FF9BD6'; c.shadowBlur=18;
+        c.fillStyle='#FFC9E8'; c.beginPath(); c.moveTo(0,-r*1.1); c.lineTo(r*0.95,r*0.6); c.lineTo(0,r*0.25); c.lineTo(-r*0.95,r*0.6); c.closePath(); c.fill();
+        c.fillStyle='#FF6FB0'; c.beginPath(); c.moveTo(0,-r*1.1); c.lineTo(r*0.95,r*0.6); c.lineTo(0,r*0.25); c.closePath(); c.fill();
+        c.shadowBlur=0; eyesOn(c,px,py-r*0.15,r*0.6); c.restore();
+      }},
+    tempete:{ id:'tempete', name:'Tempête', unlock:{type:'achievement', id:'galaxy7'}, glow:'#6FA8FF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#6FA8FF'; c.shadowBlur=22;
+        const g=c.createRadialGradient(0,0,1,0,0,r); g.addColorStop(0,'#EAF3FF'); g.addColorStop(1,'#3468C9');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='rgba(255,255,255,0.7)'; c.lineWidth=1.6;
+        for(let i=0;i<3;i++){ c.beginPath(); c.moveTo(-r*0.7, -r*0.4+i*r*0.4+Math.sin(t*4+i)*3); c.quadraticCurveTo(0,-r*0.2+i*r*0.4,r*0.7,-r*0.4+i*r*0.4); c.stroke(); }
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    vestige:{ id:'vestige', name:'Vestige Oublié', unlock:{type:'achievement', id:'infiniteMaster'}, glow:'#9C8B6F',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#9C8B6F'; c.shadowBlur=16;
+        c.fillStyle='#2A241A'; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='#C9B78F'; c.lineWidth=1.4;
+        for(let i=0;i<6;i++){ const ang=i/6*Math.PI*2; c.beginPath(); c.moveTo(0,0); c.lineTo(Math.cos(ang)*r*0.9,Math.sin(ang)*r*0.9); c.stroke(); }
+        c.restore(); eyesOn(c,px,py,r*0.7);
+      }},
+    diamant:{ id:'diamant', name:'Diamant Noir', unlock:{type:'crystals', cost:1500}, glow:'#C9AFFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.5); c.shadowColor='#C9AFFF'; c.shadowBlur=30;
+        c.fillStyle='#1A1230';
+        c.beginPath(); c.moveTo(0,-r*1.2); c.lineTo(r*0.75,-r*0.15); c.lineTo(r*0.45,r*1.05); c.lineTo(-r*0.45,r*1.05); c.lineTo(-r*0.75,-r*0.15); c.closePath(); c.fill();
+        c.strokeStyle='#C9AFFF'; c.lineWidth=1.4;
+        c.beginPath(); c.moveTo(0,-r*1.2); c.lineTo(0,r*1.05); c.moveTo(-r*0.75,-r*0.15); c.lineTo(r*0.75,-r*0.15); c.stroke();
+        c.restore(); eyesOn(c,px,py,r*0.65);
+      }},
+    archeologue:{ id:'archeologue', name:'Archéologue', unlock:{type:'achievement', id:'artifacts10'}, glow:'#D9B26B',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#D9B26B'; c.shadowBlur=18;
+        const g=c.createLinearGradient(px-r,py-r,px+r,py+r); g.addColorStop(0,'#F0D8A6'); g.addColorStop(1,'#9C6E2E');
+        c.fillStyle=g; c.beginPath(); c.ellipse(px,py,r*1.05,r*0.92,0,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='rgba(255,255,255,0.4)'; c.lineWidth=1.4;
+        for(let i=0;i<3;i++){ c.beginPath(); c.arc(px,py,r*(0.4+i*0.22),0,Math.PI*1.4); c.stroke(); }
+        c.restore(); eyesOn(c,px,py,r);
+      }},
+    pulsarskin:{ id:'pulsarskin', name:'Pulsar', unlock:{type:'achievement', id:'obstaclesAll'}, glow:'#FF6FD6',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); const pulse=1+0.12*Math.sin(t*4);
+        c.shadowColor='#FF6FD6'; c.shadowBlur=26*pulse;
+        const g=c.createRadialGradient(0,0,1,0,0,r*pulse); g.addColorStop(0,'#FFFFFF'); g.addColorStop(1,'#FF2E88');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*pulse,0,Math.PI*2); c.fill();
+        c.strokeStyle='rgba(255,255,255,0.5)'; c.lineWidth=1.5; c.beginPath(); c.arc(0,0,r*1.5,0,Math.PI*2); c.stroke();
+        c.restore(); eyesOn(c,px,py,r*0.75);
+      }},
+    quasar:{ id:'quasar', name:'Quasar', unlock:{type:'crystals', cost:700}, glow:'#3CFFEA',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.8); c.shadowColor='#3CFFEA'; c.shadowBlur=24;
+        c.strokeStyle='#3CFFEA'; c.lineWidth=2.5;
+        for(let i=0;i<3;i++){ c.beginPath(); c.ellipse(0,0,r*(0.7+i*0.35),r*0.28,i*0.6,0,Math.PI*2); c.stroke(); }
+        c.shadowBlur=0; c.fillStyle='#0B2B2A'; c.beginPath(); c.arc(0,0,r*0.65,0,Math.PI*2); c.fill();
+        c.restore(); eyesOn(c,px,py,r*0.5);
+      }},
+    divinite:{ id:'divinite', name:'Divinité', unlock:{type:'achievement', id:'divineArtifact'}, glow:'#FFFFFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py);
+        const flick=0.75+0.25*Math.sin(t*10);
+        c.globalAlpha=0.25*flick; c.fillStyle='#FFFFFF';
+        c.beginPath(); c.arc(0,0,r*1.8,0,Math.PI*2); c.fill(); c.globalAlpha=1;
+        c.shadowColor='#FFFFFF'; c.shadowBlur=30; c.fillStyle='#FFFDF5';
+        c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    doree:{ id:'doree', name:'Comète d\'Or', unlock:{type:'crystals', cost:2200}, glow:'#FFD86B',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#FFD86B'; c.shadowBlur=26;
+        for(let i=0;i<5;i++){
+          c.globalAlpha = 0.5-i*0.09; c.fillStyle = i%2===0? '#FFD86B':'#FFF3C4';
+          c.beginPath(); c.arc(px-r*0.95-i*7, py, r*0.5*(1-i*0.13), 0, Math.PI*2); c.fill();
+        }
+        c.globalAlpha=1;
+        const g=c.createRadialGradient(px,py,2,px,py,r); g.addColorStop(0,'#FFFBE8'); g.addColorStop(1,'#FFC93C');
+        c.fillStyle=g; c.beginPath(); c.arc(px,py,r,0,Math.PI*2); c.fill();
+        c.shadowBlur=0; eyesOn(c,px,py,r); c.restore();
+      }},
+    sentinelle:{ id:'sentinelle', name:'Sentinelle du Néant', unlock:{type:'achievement', id:'galaxy9'}, glow:'#FF2E3A',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FF2E3A'; c.shadowBlur=22;
+        c.fillStyle='#1a0508'; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='rgba(255,46,58,0.85)'; c.lineWidth=2;
+        for(let i=0;i<3;i++){ const rr=r*1.1+i*4+Math.sin(t*3+i)*2; c.beginPath(); c.arc(0,0,rr,0,Math.PI*2); c.stroke(); }
+        c.fillStyle='#FF2E3A'; c.shadowColor='#FF2E3A'; c.shadowBlur=16;
+        c.beginPath(); c.arc(0,0,r*0.35,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.restore(); eyesOn(c,px,py,r*0.7);
+      }},
+    novaInfinie:{ id:'novaInfinie', name:'Nova Infinie', unlock:{type:'achievement', id:'infiniteLegend'}, glow:'#39FF9E',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.6);
+        c.shadowColor='#39FF9E'; c.shadowBlur=26;
+        starPathOn(c, 0,0, r*1.15, 8, 0.5);
+        const g=c.createRadialGradient(0,0,1,0,0,r*1.15); g.addColorStop(0,'#EFFFF7'); g.addColorStop(1,'#39FF9E');
+        c.fillStyle=g; c.fill(); c.shadowBlur=0;
+        c.restore(); eyesOn(c,px,py,r*0.68);
+      }},
+    chasseur:{ id:'chasseur', name:'Chasseur de Reliques', unlock:{type:'achievement', id:'artifactHunter'}, glow:'#D9B26B',
+      draw(c,px,py,r,t){
+        c.save(); c.shadowColor='#D9B26B'; c.shadowBlur=20;
+        c.fillStyle='#241a0c'; c.beginPath(); c.ellipse(px,py,r*1.05,r*0.9,0,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='#D9B26B'; c.lineWidth=1.6;
+        for(let i=0;i<4;i++){ const ang=i/4*Math.PI*2+t*0.4; c.beginPath(); c.moveTo(0,0); c.lineTo(0,0); c.moveTo(px,py); c.lineTo(px+Math.cos(ang)*r*1.3, py+Math.sin(ang)*r*1.3); c.stroke(); }
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    cadet:{ id:'cadet', name:'Cadet Stellaire', unlock:{type:'achievement', id:'level10'}, glow:'#7CE0FF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#7CE0FF'; c.shadowBlur=18;
+        const g=c.createLinearGradient(-r,0,r,0); g.addColorStop(0,'#0B3A4A'); g.addColorStop(1,'#7CE0FF');
+        c.fillStyle=g;
+        c.beginPath(); c.moveTo(r*1.2,0); c.lineTo(-r*0.8,-r*0.75); c.lineTo(-r*0.3,0); c.lineTo(-r*0.8,r*0.75); c.closePath(); c.fill();
+        c.shadowBlur=0;
+        c.restore(); eyesOn(c,px,py,r*0.55);
+      }},
+    sergent:{ id:'sergent', name:'Sergent Cosmique', unlock:{type:'achievement', id:'level25'}, glow:'#FFB25C',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FFB25C'; c.shadowBlur=18;
+        c.fillStyle='#3a2a12';
+        c.beginPath(); roundRectOn(c,-r*0.95,-r*0.75,r*1.9,r*1.5,r*0.35); c.fill(); c.shadowBlur=0;
+        c.fillStyle='#FFB25C';
+        for(let i=0;i<3;i++){ c.beginPath(); c.moveTo(-r*0.6+i*r*0.5,-r*0.75); c.lineTo(-r*0.4+i*r*0.5,-r*1.15); c.lineTo(-r*0.2+i*r*0.5,-r*0.75); c.closePath(); c.fill(); }
+        c.restore(); eyesOn(c,px,py,r*0.75);
+      }},
+    veteran:{ id:'veteran', name:'Vétéran Blindé', unlock:{type:'achievement', id:'level50'}, glow:'#B7C3D9',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#B7C3D9'; c.shadowBlur=18;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#6E7A94'); g.addColorStop(1,'#2C3346');
+        c.fillStyle=g;
+        c.beginPath();
+        const sides=5;
+        for(let i=0;i<sides;i++){ const ang=i/sides*Math.PI*2-Math.PI/2; const x=Math.cos(ang)*r*1.1, y=Math.sin(ang)*r*1.1; i===0?c.moveTo(x,y):c.lineTo(x,y); }
+        c.closePath(); c.fill(); c.shadowBlur=0;
+        c.strokeStyle='#B7C3D9'; c.lineWidth=2; c.beginPath(); c.arc(0,0,r*0.55,0,Math.PI*2); c.stroke();
+        c.restore(); eyesOn(c,px,py,r*0.7);
+      }},
+    centurion:{ id:'centurion', name:'Centurion Stellaire', unlock:{type:'achievement', id:'level100'}, glow:'#FF5C4D',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#FF5C4D'; c.shadowBlur=22;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#FFD9CF'); g.addColorStop(1,'#B4271A');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.fillStyle='#FF5C4D';
+        c.beginPath(); c.moveTo(0,-r*1.35); c.lineTo(r*0.22,-r*0.85); c.lineTo(-r*0.22,-r*0.85); c.closePath(); c.fill();
+        c.strokeStyle='rgba(255,255,255,0.55)'; c.lineWidth=1.6; c.beginPath(); c.arc(0,0,r*0.7,-2.4,-0.7); c.stroke();
+        c.restore(); eyesOn(c,px,py,r*0.85);
+      }},
+    elite:{ id:'elite', name:'Élite Galactique', unlock:{type:'achievement', id:'level250'}, glow:'#B14EFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.5); c.shadowColor='#B14EFF'; c.shadowBlur=26;
+        const g=c.createLinearGradient(-r,-r,r,r); g.addColorStop(0,'#F1D9FF'); g.addColorStop(1,'#7A1FCC');
+        c.fillStyle=g;
+        c.beginPath(); c.moveTo(0,-r*1.2); c.lineTo(r*0.95,0); c.lineTo(0,r*1.2); c.lineTo(-r*0.95,0); c.closePath(); c.fill();
+        c.shadowBlur=0;
+        c.restore(); eyesOn(c,px,py,r*0.62);
+      }},
+    mythe:{ id:'mythe', name:'Mythe Vivant', unlock:{type:'achievement', id:'level500'}, glow:'#39FFD6',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#39FFD6'; c.shadowBlur=28;
+        for(let i=0;i<3;i++){ c.rotate(Math.PI*2/3); c.strokeStyle='rgba(57,255,214,'+(0.8-i*0.15)+')'; c.lineWidth=2;
+          c.beginPath(); c.ellipse(0,0,r*(1+i*0.22), r*0.4, t*0.6+i, 0, Math.PI*2); c.stroke(); }
+        c.shadowBlur=0;
+        const g=c.createRadialGradient(0,0,1,0,0,r*0.85); g.addColorStop(0,'#EFFFFC'); g.addColorStop(1,'#0FBFA0');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*0.85,0,Math.PI*2); c.fill();
+        c.restore(); eyesOn(c,px,py,r*0.6);
+      }},
+    immortel:{ id:'immortel', name:'Immortel', unlock:{type:'achievement', id:'level1000'}, glow:'#FFFFFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.8); c.shadowColor='#FFFFFF'; c.shadowBlur=32;
+        const g=c.createLinearGradient(-r*1.3,-r*1.3,r*1.3,r*1.3);
+        g.addColorStop(0,'#FF6FD6'); g.addColorStop(0.35,'#7CE0FF'); g.addColorStop(0.65,'#B4FF39'); g.addColorStop(1,'#FFD86B');
+        c.fillStyle=g; starPathOn(c,0,0,r*1.25,10,0.55); c.fill(); c.shadowBlur=0;
+        c.restore();
+        c.save(); c.shadowColor='#fff'; c.shadowBlur=14;
+        const g2=c.createRadialGradient(px,py,1,px,py,r*0.7); g2.addColorStop(0,'#ffffff'); g2.addColorStop(1,'#C9D6F5');
+        c.fillStyle=g2; c.beginPath(); c.arc(px,py,r*0.65,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.restore();
+        eyesOn(c,px,py,r*0.55);
+      }},
+    nebuleuse:{ id:'nebuleuse', name:'Nébuleuse', unlock:{type:'crystals', cost:480}, glow:'#C96BFF',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.shadowColor='#C96BFF'; c.shadowBlur=24;
+        const g=c.createRadialGradient(0,0,1,0,0,r*1.1); g.addColorStop(0,'#FFEFFF'); g.addColorStop(0.5,'#C96BFF'); g.addColorStop(1,'#4A1E7A');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*1.05,0,Math.PI*2); c.fill(); c.shadowBlur=0;
+        c.fillStyle='rgba(255,255,255,0.35)';
+        for(let i=0;i<4;i++){ const ang=i/4*Math.PI*2+t; c.beginPath(); c.arc(Math.cos(ang)*r*0.55,Math.sin(ang)*r*0.55,r*0.14,0,Math.PI*2); c.fill(); }
+        c.restore(); eyesOn(c,px,py,r*0.7);
+      }},
+    voidcore:{ id:'voidcore', name:'Cœur du Vide', unlock:{type:'crystals', cost:850}, glow:'#5B4B8A',
+      draw(c,px,py,r,t){
+        c.save(); c.translate(px,py); c.rotate(t*0.5); c.shadowColor='#8A6BFF'; c.shadowBlur=24;
+        c.strokeStyle='rgba(138,107,255,0.85)'; c.lineWidth=2.4;
+        for(let i=0;i<2;i++){ c.beginPath(); c.arc(0,0,r*(0.95+i*0.3), i*1.4, i*1.4+Math.PI*1.4); c.stroke(); }
+        c.shadowBlur=0;
+        const g=c.createRadialGradient(0,0,1,0,0,r*0.75); g.addColorStop(0,'#150826'); g.addColorStop(1,'#000');
+        c.fillStyle=g; c.beginPath(); c.arc(0,0,r*0.75,0,Math.PI*2); c.fill();
+        c.restore();
+        c.save(); c.fillStyle='#C9B8FF'; c.shadowColor='#8A6BFF'; c.shadowBlur=8;
+        c.beginPath(); c.ellipse(px+r*0.16,py-r*0.1,r*0.11,r*0.14,0,0,Math.PI*2); c.fill();
+        c.beginPath(); c.ellipse(px+r*0.16,py+r*0.14,r*0.11,r*0.14,0,0,Math.PI*2); c.fill();
+        c.restore();
+      }},
+  };
+  function ctxSafeRadial(c,px,py,r){ const g=c.createRadialGradient(px,py,1,px,py,r); g.addColorStop(0,'#FFFDF2'); g.addColorStop(1,'#FFB74D'); return g; }
+
+  function skinLockedReason(skin){
+    if(skin.unlock.type==='free') return null;
+    if(save.unlockedSkins.includes(skin.id)) return null;
+    if(skin.unlock.type==='crystals') return `◆ ${skin.unlock.cost} cristaux`;
+    if(skin.unlock.type==='achievement'){ const a=ACHIEVEMENTS.find(x=>x.id===skin.unlock.id); return `Succès : ${a? a.name:'???'}`; }
+    return null;
+  }
+
+  // ================= ACHIEVEMENTS =================
+  const ACHIEVEMENTS = [
+    { id:'first',    name:'Premier Envol',        desc:'Termine ta première partie', icon:'🚀' },
+    { id:'score100',  name:'Échauffement',         desc:'Atteins 100 points en une partie', icon:'✨' },
+    { id:'score500',  name:'En Vitesse',           desc:'Atteins 500 points en une partie', icon:'⚡' },
+    { id:'score1000', name:'Pilote Confirmé',      desc:'Atteins 1000 points en une partie', icon:'🛰️' },
+    { id:'score2500', name:'Légende Vivante',      desc:'Atteins 2500 points en une partie', icon:'🌟' },
+    { id:'combo10',   name:'Combo Parfait',        desc:'Atteins un combo ×10', icon:'🔥' },
+    { id:'combo20',   name:'Combo Légendaire',     desc:'Atteins le combo maximum ×20', icon:'💥' },
+    { id:'crystals100', name:'Collectionneur',     desc:'Récolte 100 cristaux au total', icon:'◆' },
+    { id:'crystals500', name:'Grand Collectionneur', desc:'Récolte 500 cristaux au total', icon:'💎' },
+    { id:'galaxy3',   name:'Explorateur Galactique', desc:'Atteins le Secteur Sentinelle', icon:'🪐' },
+    { id:'galaxy5',   name:'Cœur de l\'Essaim',    desc:"Atteins l'Essaim Stellaire", icon:'🐝' },
+    { id:'galaxy7',   name:'Cœur Battant',         desc:'Atteins le Cœur de la Galaxie', icon:'💫' },
+    { id:'survive90', name:'Increvable',           desc:'Survis 90 secondes en une partie', icon:'🛡️' },
+    { id:'bossDefeated', name:'Vainqueur du Gardien', desc:'Bats le Gardien Stellaire', icon:'👑' },
+    { id:'infiniteSurvivor', name:'Boucle Sans Fin', desc:'Survis 30 secondes en mode infini', icon:'♾️' },
+    { id:'crystals1000', name:'Trésor Cosmique', desc:'Récolte 1000 cristaux au total', icon:'👑' },
+    { id:'infiniteMaster', name:"Maître de l'Infini", desc:'Survis 120 secondes en mode infini', icon:'♾️' },
+    { id:'speedrun500', name:'Éclair Stellaire', desc:'Atteins 500 points en moins de 25 secondes', icon:'⚡' },
+    { id:'firstArtifact', name:'Archéologue Spatial', desc:'Trouve ton premier artefact', icon:'🏺' },
+    { id:'legendaryArtifact', name:'Chasseur de Légendes', desc:'Trouve un artefact légendaire', icon:'🟠' },
+    { id:'divineArtifact', name:'Toucher Divin', desc:'Trouve un artefact Divin', icon:'✨' },
+    { id:'artifacts10', name:'Petite Collection', desc:'Découvre 10 artefacts différents', icon:'📦' },
+    { id:'artifactsAll', name:'Collection Complète', desc:'Découvre tous les artefacts de l\'encyclopédie', icon:'📚' },
+    { id:'obstaclesAll', name:'Manuel du Danger', desc:'Rencontre tous les types d\'obstacles', icon:'📖' },
+    { id:'noHitBoss', name:'Sans Égratignure', desc:'Bats le Gardien sans utiliser de bouclier', icon:'🌟' },
+    { id:'score5000', name:'Voyageur Infini', desc:'Atteins 5000 points en une partie', icon:'🚀' },
+    { id:'crystals2500', name:'Fortune Stellaire', desc:'Récolte 2500 cristaux au total', icon:'💰' },
+    { id:'rulesRead', name:'Bien Préparé', desc:'Consulte les règles du jeu', icon:'📜' },
+    { id:'galaxy9',   name:'Aux Portes du Gardien', desc:"Atteins l'Antre du Gardien", icon:'⚔️' },
+    { id:'infiniteLegend', name:"Légende de l'Infini", desc:'Survis 240 secondes en mode infini', icon:'🌌' },
+    { id:'crystals5000', name:'Magnat Stellaire', desc:'Récolte 5000 cristaux au total', icon:'🪙' },
+    { id:'artifactHunter', name:'Chasseur de Reliques', desc:'Découvre 25 artefacts différents', icon:'🗺️' },
+    { id:'level10',  name:'Apprenti Pilote',        desc:'Atteins le niveau 10', icon:'🥉' },
+    { id:'level25',  name:'Pilote Expérimenté',     desc:'Atteins le niveau 25', icon:'🥈' },
+    { id:'level50',  name:'Pilote Vétéran',         desc:'Atteins le niveau 50', icon:'🥇' },
+    { id:'level100', name:'Centurion Stellaire',    desc:'Atteins le niveau 100', icon:'💯' },
+    { id:'level250', name:'Élite Galactique',       desc:'Atteins le niveau 250', icon:'🎖️' },
+    { id:'level500', name:"Héros de l'Espace",      desc:'Atteins le niveau 500', icon:'🏵️' },
+    { id:'level1000', name:'Légende Immortelle',    desc:'Atteins le niveau 1000', icon:'👽' },
+  ];
+  function unlockAchievement(id){
+    if(save.unlockedAchievements.includes(id)) return;
+    save.unlockedAchievements.push(id);
+    const a = ACHIEVEMENTS.find(x=>x.id===id);
+    let unlockedSkinName=null;
+    Object.values(SKINS).forEach(s=>{
+      if(s.unlock.type==='achievement' && s.unlock.id===id && !save.unlockedSkins.includes(s.id)){ save.unlockedSkins.push(s.id); unlockedSkinName=s.name; }
+    });
+    persistSave();
+    if(a){ showToast('🏆 '+a.name); sfxAch(); }
+    if(unlockedSkinName){ setTimeout(()=>showToast('🎨 '+unlockedSkinName+' débloqué !'), 600); }
+  }
+  function checkRunAchievements(){
+    unlockAchievement('first');
+    checkAchievementsLive();
+  }
+  function checkAchievementsLive(){
+    if(state.score>=100) unlockAchievement('score100');
+    if(state.score>=500) unlockAchievement('score500');
+    if(state.score>=1000) unlockAchievement('score1000');
+    if(state.score>=2500) unlockAchievement('score2500');
+    if(state.maxCombo>=10) unlockAchievement('combo10');
+    if(state.maxCombo>=20) unlockAchievement('combo20');
+    if(save.totalCrystals>=100) unlockAchievement('crystals100');
+    if(save.totalCrystals>=500) unlockAchievement('crystals500');
+    if(save.totalCrystals>=1000) unlockAchievement('crystals1000');
+    if(state.maxGalaxy>=2) unlockAchievement('galaxy3');
+    if(state.maxGalaxy>=4) unlockAchievement('galaxy5');
+    if(state.maxGalaxy>=8) unlockAchievement('galaxy7');
+    if(state.t>=90) unlockAchievement('survive90');
+    if(state.bossDefeatedThisRun) unlockAchievement('bossDefeated');
+    if(state.infiniteT>=30) unlockAchievement('infiniteSurvivor');
+    if(state.infiniteT>=120) unlockAchievement('infiniteMaster');
+    if(state.score>=500 && state.t<=25) unlockAchievement('speedrun500');
+    if(state.score>=5000) unlockAchievement('score5000');
+    if(save.totalCrystals>=2500) unlockAchievement('crystals2500');
+    if(save.collectedArtifacts.length>=1) unlockAchievement('firstArtifact');
+    if(save.collectedArtifacts.length>=10) unlockAchievement('artifacts10');
+    if(save.collectedArtifacts.length>=ARTIFACTS.length) unlockAchievement('artifactsAll');
+    if(save.discoveredObstacles && save.discoveredObstacles.length>=Object.keys(OBSTACLE_INFO).length) unlockAchievement('obstaclesAll');
+    if(state.bossDefeatedThisRun && !state.shieldUsedThisRun) unlockAchievement('noHitBoss');
+    if(state.maxGalaxy>=BOSS_INDEX) unlockAchievement('galaxy9');
+    if(state.infiniteT>=240) unlockAchievement('infiniteLegend');
+    if(save.totalCrystals>=5000) unlockAchievement('crystals5000');
+    if(save.collectedArtifacts.length>=25) unlockAchievement('artifactHunter');
+    if(save.level>=10) unlockAchievement('level10');
+    if(save.level>=25) unlockAchievement('level25');
+    if(save.level>=50) unlockAchievement('level50');
+    if(save.level>=100) unlockAchievement('level100');
+    if(save.level>=250) unlockAchievement('level250');
+    if(save.level>=500) unlockAchievement('level500');
+    if(save.level>=1000) unlockAchievement('level1000');
+  }
+
+  // ================= NIVEAU / XP =================
+  // XP requise pour passer du niveau `level` au niveau `level+1` — augmente avec le niveau, sans plafond
+  // (le système est pensé pour continuer bien au-delà du niveau 1000).
+  function xpForLevel(level){
+    return Math.floor(70 * Math.pow(level, 1.42)) + 40;
+  }
+  function levelInfo(){
+    if(!save.level) save.level=1;
+    if(!save.xp) save.xp=0;
+    const need = xpForLevel(save.level);
+    return { level:save.level, xp:save.xp, need, pct: Math.max(0,Math.min(100, Math.floor(save.xp/need*100))) };
+  }
+  // Ajoute de l'XP et fait monter le niveau autant de fois que nécessaire. Renvoie le nombre de niveaux gagnés.
+  function addXp(amount){
+    if(!save.level) save.level=1;
+    if(!save.xp) save.xp=0;
+    if(amount<=0) return { levelsGained:0, newLevel:save.level };
+    const startLevel = save.level;
+    save.xp += amount;
+    let needed = xpForLevel(save.level);
+    while(save.xp >= needed){
+      save.xp -= needed;
+      save.level++;
+      needed = xpForLevel(save.level);
+    }
+    return { levelsGained: save.level-startLevel, newLevel: save.level };
+  }
+  function computeXpGain(finalScoreVal, isRecord){
+    let xp = Math.floor(finalScoreVal*0.12) + state.crystalsThisRun*2 + (state.runArtifacts?state.runArtifacts.length:0)*8;
+    if(isRecord) xp += 30;
+    return Math.max(8, Math.floor(xp));
+  }
+  function refreshLevelUI(){
+    const info = levelInfo();
+    if(homeLevelVal){ homeLevelVal.textContent = info.level; homeXpFill.style.width = info.pct+'%'; homeXpText.textContent = `${info.xp} / ${info.need} XP`; }
+    if(hudLevelVal){ hudLevelVal.textContent = info.level; hudXpFill.style.width = info.pct+'%'; }
+  }
+
+  // ================= ARTEFACTS (Zone Infinie) =================
+  // Raretés classées de la moins rare à la plus rare, avec leur couleur
+  // d'anneau (celle qui entoure l'artefact en jeu) et leur pourcentage
+  // d'apparition (somme = 100%). Le "Divin" est volontairement quasi
+  // impossible à obtenir (0,0001%).
+  // chance = base weight at low score. minScore = can't drop before this many points in the run.
+  // The higher the score climbs in the Zone Infinie, the more the weights shift toward the rarer tiers (see pickArtifactRarity).
+  const RARITIES = {
+    atypique:     { label:'Atypique',       color:'#AEC4E6', chance:45,     minScore:0 },
+    rare:         { label:'Rare',           color:'#3CA7FF', chance:30,     minScore:1000 },
+    mythique:     { label:'Mythique',       color:'#B14EFF', chance:15,     minScore:2500 },
+    legendaire:   { label:'Légendaire',     color:'#FFA83C', chance:7,      minScore:4000 },
+    nonidentifie: { label:'Non identifié',  color:'#39FF9E', chance:2.9999, minScore:7000 },
+    divin:        { label:'Divin',          color:'#FFFFFF', chance:0.0001,minScore:11000 },
+  };
+  const ARTIFACT_NAMES = {
+    atypique: ['Éclat de Comète','Poussière d\'Étoile','Fragment d\'Astéroïde','Cristal Terne','Capsule Rouillée',
+      'Antenne Brisée','Boussole Folle','Gant Spatial Usé','Pierre Lunaire','Écrou Cosmique','Carte Stellaire Déchirée','Bouteille Dérivante'],
+    rare: ['Orbe de Glace','Sceau du Vide','Prisme Fracturé','Griffe de Comète','Cœur de Nébuleuse',
+      'Balise Perdue','Éclair Figé','Miroir Brisé','Graine Stellaire','Anneau de Saturne'],
+    mythique: ['Larme de Supernova','Œil du Vortex','Flamme Éternelle','Cristal du Néant','Souffle d\'Étoile',
+      'Rune Galactique','Fragment de Trou Noir','Écho du Big Bang'],
+    legendaire: ['Couronne du Gardien','Lame Stellaire','Cœur de Titan','Sceptre Cosmique','Orbe du Chaos','Relique des Anciens'],
+    nonidentifie: ['Objet ???','Signal Inconnu','Artefact Indéchiffrable','Anomalie Spatiale'],
+    divin: ['Larme de la Création','Fragment d\'Infini','Œil de l\'Univers'],
+  };
+  const ARTIFACT_DESCRIPTIONS = {
+    atypique:     "Un objet insolite dérivant dans la Zone Infinie. Sans grande valeur, mais intriguant.",
+    rare:         "Un artefact peu commun, chargé d'une énergie résiduelle inhabituelle.",
+    mythique:     "Un vestige puissant dont l'origine remonte à des civilisations disparues.",
+    legendaire:   "Un artefact dont les récits galactiques racontent des exploits extraordinaires.",
+    nonidentifie: "Sa nature échappe à toute analyse. Personne ne sait vraiment ce que c'est.",
+    divin:        "Un fragment d'essence pure, presque impossible à trouver. Sa lumière est aveuglante.",
+  };
+  // Each artifact gets its own distinct look — much easier to tell apart at a glance than a shared rarity icon.
+  const ARTIFACT_ICONS = ['☄️','✨','🪨','💠','🧲','📡','🧭','🧤','🌕','🔩','🗺️','🍾','🧊','🗝️','🔷','🐾','💫','🪞','🌱','🪐',
+    '💧','👁️','🔥','🕳️','🌬️','🕸️','🔊','👑','⚔️','🫀','🔱','💎','❓','📶','🧬','🌀','🌟','☀️','🔆','🎇'];
+  function buildArtifactList(){
+    const list=[]; let ic=0;
+    Object.entries(ARTIFACT_NAMES).forEach(([rarity,names])=>{
+      names.forEach((name,i)=>{ list.push({ id:rarity+'_'+i, name, rarity, desc:ARTIFACT_DESCRIPTIONS[rarity], icon:ARTIFACT_ICONS[ic++ % ARTIFACT_ICONS.length] }); });
+    });
+    return list;
+  }
+  const ARTIFACTS = buildArtifactList();
+  function pickArtifactRarity(){
+    const score = state.score;
+    // Only rarities we've earned the right to see so far this run.
+    const keys = Object.keys(RARITIES).filter(k=>score>=RARITIES[k].minScore);
+    // The further the score climbs, the more the odds shift away from common tiers toward rare ones.
+    const progress = Math.min(1, score/12000);
+    const weights = keys.map(k=>{
+      let w = RARITIES[k].chance;
+      w *= (k==='atypique') ? (1-progress*0.6) : (1+progress*2.4);
+      return Math.max(0.0001, w);
+    });
+    const total = weights.reduce((a,b)=>a+b,0);
+    let roll = Math.random()*total, acc=0;
+    for(let i=0;i<keys.length;i++){ acc += weights[i]; if(roll<=acc) return keys[i]; }
+    return keys[keys.length-1] || 'atypique';
+  }
+  function pickArtifact(){
+    const rarity = pickArtifactRarity();
+    const pool = ARTIFACTS.filter(a=>a.rarity===rarity);
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  function hexToRgbStr(hex){
+    hex=hex.replace('#',''); const n=parseInt(hex,16);
+    return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
+  }
+  function spawnArtifactPickup(){
+    const def = pickArtifact(); const r=13;
+    const y = Math.random()*(H-2*r-60)+r+30;
+    state.artifacts.push({ def, x:W+r, y, r, speed:state.speed*0.85, phase:Math.random()*Math.PI*2, spawnT:0 });
+  }
+  function onCollectArtifact(def){
+    const isNew = !save.collectedArtifacts.includes(def.id);
+    if(isNew) save.collectedArtifacts.push(def.id);
+    if(!save.artifactCounts) save.artifactCounts={};
+    save.artifactCounts[def.id] = (save.artifactCounts[def.id]||0)+1;
+    persistSave();
+    state.runArtifacts.push(def.id);
+    const rc = RARITIES[def.rarity];
+    spawnBurst(state.player.x, state.player.y, hexToRgbStr(rc.color), def.rarity==='divin'?70:24, def.rarity==='divin'?7:3.5);
+    sfxArtifact(def.rarity);
+    if(def.rarity==='divin') state.shake = Math.max(state.shake, 0.85);
+    showToast((def.icon||'🏺')+' '+def.name+' — '+rc.label+(isNew?' (nouveau !)':' (déjà découvert)'));
+    if(def.rarity==='legendaire') unlockAchievement('legendaryArtifact');
+    if(def.rarity==='divin') unlockAchievement('divineArtifact');
+    checkAchievementsLive();
+  }
+
+  // ================= TOASTS =================
+  const toastWrap = document.getElementById('toastWrap');
+  function showToast(text){
+    const el=document.createElement('div'); el.className='toast'; el.textContent=text;
+    toastWrap.appendChild(el); setTimeout(()=>{ el.remove(); }, 2500);
+  }
+
+  // ================= POWER-UPS =================
+  const POWER_TYPES = {
+    shield:{ icon:'🛡️', color:'0,240,255', label:'Bouclier', duration:0, desc:'Absorbe automatiquement le prochain coup que tu reçois.' },
+    slow:{ icon:'🕐', color:'155,123,255', label:'Ralenti', duration:5.5, desc:'Ralentit tous les obstacles pendant 5,5 secondes.' },
+    magnet:{ icon:'🧲', color:'255,46,136', label:'Aimant', duration:6, desc:'Attire automatiquement les cristaux proches pendant 6 secondes.' },
+    mult:{ icon:'★', color:'255,201,60', label:'Score ×2', duration:8, desc:'Double tous les points gagnés pendant 8 secondes.' },
+  };
+
+  // ================= STATE =================
+  const state = {
+    running:false, paused:false,
+    t:0, score:0, combo:1, comboProgress:0, maxCombo:1,
+    shake:0, crystalsThisRun:0, maxGalaxy:0, galaxyIdx:0,
+    bgBlend:1, bgFrom:GALAXIES[0].bg, bgTo:GALAXIES[0].bg,
+    player:{ x:0, y:0, targetY:0, r:17, trail:[] },
+    obstacles:[], gems:[], powerups:[], particles:[], artifacts:[], artifactTimer:9,
+    spawnTimer:0, gemTimer:0, specialTimer:6, speed:230,
+    stars:[], decor:{planet:null, clouds:[]}, activePowers:{},
+    runArtifacts:[], artifactsKnownBeforeRun:[],
+    inBossFight:false, boss:null, bossDefeatedThisRun:false, infiniteMode:false, infiniteT:0, infinitePaletteTimer:0,
+    bossGemTimer:0,
+    approaching:false, sequence:null, seqT:0, invulnerable:false,
+    deathBoss:null, deathPlayer:null,
+  };
+
+  function initStars(){
+    state.stars=[]; const count=Math.floor((W*H)/9000);
+    for(let i=0;i<count;i++) state.stars.push({ x:Math.random()*W, y:Math.random()*H, r:Math.random()*1.4+0.3, s:Math.random()*40+18, a:Math.random()*0.6+0.2 });
+  }
+  initStars();
+  window.addEventListener('resize', initStars);
+
+  // ---- Distant background decor (planets/nebulae) — purely visual, never collides,
+  // always soft/blurred/desaturated compared to the crisp glowing obstacles so it can never be confused with them. ----
+  function makeDecorPlanet(){
+    return { x:Math.random()*W, y:Math.random()*H*0.55+H*0.08, r:85+Math.random()*70, speedMul:0.4+Math.random()*0.35, ring:Math.random()<0.5 };
+  }
+  function makeDecorCloud(){
+    return { x:Math.random()*W*1.3, y:Math.random()*H, r:130+Math.random()*160, speedMul:0.22+Math.random()*0.22, alpha:0.05+Math.random()*0.055 };
+  }
+  function initDecor(){
+    state.decor.planet = makeDecorPlanet();
+    state.decor.clouds = [makeDecorCloud(), makeDecorCloud(), makeDecorCloud()];
+  }
+  initDecor();
+  window.addEventListener('resize', initDecor);
+  function currentDecorColor(){
+    if(state.infiniteMode){
+      const idx = INFINITE_PALETTES.indexOf(state.bgTo);
+      return INFINITE_PALETTE_DECOR[idx>=0?idx:0];
+    }
+    return (GALAXIES[state.galaxyIdx]&&GALAXIES[state.galaxyIdx].decorColor) || '#6C7FBF';
+  }
+  function drawDecor(){
+    if(!state.decor.planet) return;
+    const rgb = hexToRgbStr(currentDecorColor());
+    for(const cl of state.decor.clouds){
+      cl.x -= (10+cl.speedMul*22)*0.016;
+      if(cl.x < -cl.r){ cl.x = W+cl.r; cl.y = Math.random()*H; cl.r = 130+Math.random()*160; }
+      const g = ctx.createRadialGradient(cl.x,cl.y,0,cl.x,cl.y,cl.r);
+      g.addColorStop(0, `rgba(${rgb},${cl.alpha})`); g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cl.x,cl.y,cl.r,0,Math.PI*2); ctx.fill();
+    }
+    const p = state.decor.planet;
+    p.x -= (7+p.speedMul*16)*0.016;
+    if(p.x < -p.r){ p.x = W+p.r; p.y = Math.random()*H*0.55+H*0.08; p.r = 85+Math.random()*70; p.ring = Math.random()<0.5; }
+    ctx.save();
+    const g2 = ctx.createRadialGradient(p.x-p.r*0.3,p.y-p.r*0.3,p.r*0.08, p.x,p.y,p.r);
+    g2.addColorStop(0, `rgba(${rgb},0.46)`); g2.addColorStop(0.7, `rgba(${rgb},0.16)`); g2.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    if(p.ring){
+      ctx.strokeStyle=`rgba(${rgb},0.16)`; ctx.lineWidth=Math.max(2,p.r*0.08);
+      ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*1.55,p.r*0.4,-0.4,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function resetGame(){
+    state.t=0; state.score=0; state.combo=1; state.comboProgress=0; state.maxCombo=1;
+    state.shake=0; state.crystalsThisRun=0; state.maxGalaxy=0; state.galaxyIdx=0;
+    state.bgBlend=1; state.bgFrom=GALAXIES[0].bg; state.bgTo=GALAXIES[0].bg;
+    state.obstacles=[]; state.gems=[]; state.powerups=[]; state.particles=[]; state.artifacts=[]; state.artifactTimer=9;
+    state.spawnTimer=0.6; state.gemTimer=1.2; state.specialTimer=8; state.speed=230;
+    state.activePowers={};
+    state.inBossFight=false; state.boss=null; state.bossDefeatedThisRun=false;
+    state.infiniteMode=false; state.infiniteT=0; state.infinitePaletteTimer=0; state.bossGemTimer=0;
+    state.approaching=false; state.sequence=null; state.seqT=0; state.invulnerable=false;
+    state.deathBoss=null; state.deathPlayer=null; state.shieldUsedThisRun=false; state.consecutiveGates=0;
+    state.runArtifacts=[]; state.artifactsKnownBeforeRun = save.collectedArtifacts.slice();
+    initDecor();
+    bossIntroBanner.classList.remove('show'); bossIntroBanner.style.opacity=0;
+    musicCut(ambientGain); musicCut(scaryGain); musicCut(bossFightGain);
+    state.player.x = Math.max(70, W*0.14);
+    state.player.y=H/2; state.player.targetY=H/2; state.player.trail=[];
+    updateGalaxyTag(true);
+    bossBar.classList.add('hidden');
+  }
+
+  // ================= INPUT =================
+  function setTargetFromClientY(clientY){ const rect=canvas.getBoundingClientRect(); state.player.targetY = clientY-rect.top; }
+  window.addEventListener('mousemove', e=>{ if(state.running && !state.paused) setTargetFromClientY(e.clientY); });
+  window.addEventListener('touchmove', e=>{ if(e.touches[0] && state.running && !state.paused) setTargetFromClientY(e.touches[0].clientY); e.preventDefault(); }, {passive:false});
+  window.addEventListener('touchstart', e=>{ if(e.touches[0] && state.running && !state.paused) setTargetFromClientY(e.touches[0].clientY); }, {passive:false});
+  const keys={};
+  window.addEventListener('keydown', e=>{
+    keys[e.key]=true;
+    if(['ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+    if(!state.running && (e.key===' '||e.key==='Enter') && startScreen.classList.contains('hidden')===false) startGame();
+    if((e.key==='p'||e.key==='P'||e.key==='Escape') && state.running) togglePause();
+  });
+  window.addEventListener('keyup', e=>{ keys[e.key]=false; });
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden && state.running && !state.paused) togglePause(); });
+
+  // ================= PARTICLES =================
+  function spawnBurst(x,y,color,count,speed){
+    for(let i=0;i<count;i++){
+      const a=Math.random()*Math.PI*2, sp=(Math.random()*0.6+0.4)*speed;
+      state.particles.push({ x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:1, decay:Math.random()*0.9+0.7, color, r:Math.random()*2.5+1.5 });
+    }
+  }
+
+  // ================= GALAXY / BACKGROUND =================
+  const galaxyTagEl = document.getElementById('galaxyTag');
+  const bossBar = document.getElementById('bossBar');
+  const bossHpFill = document.getElementById('bossHpFill');
+  const bossIntroBanner = document.getElementById('bossIntroBanner');
+  function updateGalaxyTag(instant){
+    if(state.infiniteMode) return;
+    const idx = galaxyIndexForScore(state.score);
+    if(idx!==state.galaxyIdx || instant){
+      const changed = idx!==state.galaxyIdx;
+      state.bgFrom = (!instant) ? GALAXIES[state.galaxyIdx].bg : GALAXIES[idx].bg;
+      state.bgTo = GALAXIES[idx].bg;
+      state.bgBlend = instant?1:0;
+      state.galaxyIdx = idx;
+      state.maxGalaxy = Math.max(state.maxGalaxy, idx);
+      galaxyTagEl.textContent = GALAXIES[idx].name;
+      if(changed && !instant) showToast('🪐 '+GALAXIES[idx].name);
+    }
+  }
+
+  // ================= SPAWNING =================
+  function currentTypes(){ return GALAXIES[Math.min(state.galaxyIdx, BOSS_INDEX-1)].types; }
+  function densityIdx(){ return Math.min(state.galaxyIdx, BOSS_INDEX-1); }
+
+  // Obstacle codex — used to power the "Obstacles" encyclopedia tab (name + what each one does).
+  const OBSTACLE_INFO = {
+    asteroid:  { name:'Astéroïde',        icon:'☄️', desc:'Un bloc de roche qui fonce en ligne droite. Le plus commun — esquive-le simplement.' },
+    comet:     { name:'Comète',           icon:'🔥', desc:'Rapide et ondulante, elle laisse une traînée de particules derrière elle.' },
+    swarmlet:  { name:'Essaim',           icon:'🐝', desc:'Un groupe de petites unités qui ondulent ensemble en formation serrée.' },
+    laser:     { name:'Rayon Laser',      icon:'🔺', desc:'Se charge puis tire un faisceau horizontal. Évite la bande au moment du tir.' },
+    blackhole: { name:'Trou Noir',        icon:'🌑', desc:'Aspire doucement ton vaisseau vers son centre — reste loin de son rayon d\'attraction.' },
+    homingOrb: { name:'Orbe Traqueur',    icon:'🔮', desc:'Vise ta position et corrige sa trajectoire pour te suivre.' },
+    mine:      { name:'Mine à Fragmentation', icon:'💣', desc:'S\'arme quand tu approches puis explose en projetant des fragments dans toutes les directions.' },
+    shrapnel:  { name:'Fragment',         icon:'✴️', desc:'Projectile généré par l\'explosion d\'une mine. Petit mais rapide.' },
+    gate:      { name:'Portail Instable', icon:'🌀', desc:'Une porte d\'énergie dont l\'ouverture oscille de haut en bas — synchronise ton passage.' },
+    spinner:   { name:'Duo Binaire',      icon:'⚛️', desc:'Deux orbes liés qui tournent l\'un autour de l\'autre en avançant. Esquive les deux trajectoires.' },
+    pulsar:    { name:'Pulsar',           icon:'💠', desc:'Une sphère d\'énergie qui grossit et rétrécit en rythme — ne t\'approche pas quand elle est grande.' },
+    pincer:    { name:'Étau Stellaire',   icon:'🦾', desc:'Deux mâchoires d\'énergie qui se resserrent en avançant. Passe tôt, avant que l\'ouverture ne rétrécisse trop.' },
+    seeker:    { name:'Sonde Furtive',    icon:'🛰️', desc:'Une sonde discrète qui corrige lentement sa trajectoire pour te suivre. Apparaît très loin dans la Zone Infinie.' },
+    flare:     { name:'Traqueur Ardent',  icon:'🔥', desc:"Une variante brûlante de la sonde furtive qui corrige sa trajectoire bien plus vite. N'apparaît que très tard dans la Zone Infinie." },
+    voidwall:  { name:'Mur du Néant',     icon:'🕳️', desc:"Une double paroi d'énergie qui oscille de haut en bas ET se resserre en avançant. Le danger ultime de la Zone Infinie." },
+  };
+  function unlockObstacleCodex(type){
+    if(!OBSTACLE_INFO[type]) return;
+    if(!save.discoveredObstacles) save.discoveredObstacles=[];
+    if(!save.discoveredObstacles.includes(type)){ save.discoveredObstacles.push(type); persistSave(); }
+  }
+  function spawnObstacle(){
+    const types = currentTypes();
+    const weighted=[];
+    types.forEach(t=>{ const w = t==='asteroid'?5:(t==='comet'?3:2); for(let i=0;i<w;i++) weighted.push(t); });
+    // Zone Infinie only: new hazards unlocked progressively, spaced well apart, so it's not always the same obstacles.
+    if(state.infiniteMode){
+      if(state.infiniteT>10) for(let i=0;i<3;i++) weighted.push('gate');
+      if(state.infiniteT>35) weighted.push('mine'); // rarer & later than before — it's the most punishing hazard
+      if(state.infiniteT>55) for(let i=0;i<2;i++) weighted.push('spinner');
+      if(state.infiniteT>80) for(let i=0;i<2;i++) weighted.push('pulsar');
+      if(state.infiniteT>115) for(let i=0;i<2;i++) weighted.push('pincer');
+      if(state.infiniteT>150) weighted.push('seeker');
+      if(state.infiniteT>190) for(let i=0;i<2;i++) weighted.push('flare');
+      if(state.infiniteT>230) weighted.push('voidwall');
+    }
+    let type = weighted[Math.floor(Math.random()*weighted.length)];
+    // Never more than 2 portails ("gate") in a row — reroll away from gate if that cap is hit.
+    if(type==='gate' && (state.consecutiveGates||0)>=2){
+      const alt = weighted.filter(t=>t!=='gate');
+      type = alt.length ? alt[Math.floor(Math.random()*alt.length)] : 'asteroid';
+    }
+    // When a portail follows another one directly, push it further off-screen so the two openings
+    // are spaced further apart and there's time to line up the second pass after the first.
+    const extraGateGap = (type==='gate' && (state.consecutiveGates||0)>=1) ? 240+Math.random()*70 : 0;
+    state.consecutiveGates = (type==='gate') ? (state.consecutiveGates||0)+1 : 0;
+    unlockObstacleCodex(type);
+    sfxObstacleWarning(type);
+    if(type==='gate'){
+      const gapH = Math.max(120, 200 - Math.min(state.infiniteT,90)*0.6);
+      const gapY = Math.random()*(H-gapH-60)+gapH/2+30;
+      state.obstacles.push({ type:'gate', x:W+20+extraGateGap, gapY, baseGapY:gapY, gapH, speed:state.speed*0.85, thickness:24, phase:Math.random()*Math.PI*2, amp:36+Math.random()*24 });
+    } else if(type==='pincer'){
+      const gapY = Math.random()*(H-160)+80;
+      state.obstacles.push({ type:'pincer', x:W+20, gapY, gapH:260, minGapH:110, speed:state.speed*0.8, thickness:22 });
+    } else if(type==='seeker'){
+      state.obstacles.push({ type:'seeker', x:W+20, y:Math.random()*(H-140)+70, r:13, speed:state.speed*0.62, vy:0 });
+    } else if(type==='flare'){
+      state.obstacles.push({ type:'flare', x:W+20, y:Math.random()*(H-140)+70, r:12, speed:state.speed*0.74, vy:0 });
+    } else if(type==='voidwall'){
+      const gapY = Math.random()*(H-160)+80;
+      state.obstacles.push({ type:'voidwall', x:W+20, gapY, baseGapY:gapY, gapH:230, minGapH:100, speed:state.speed*0.78, thickness:26, phase:Math.random()*Math.PI*2, amp:50 });
+    } else if(type==='mine'){
+      const y=Math.random()*(H-140)+70;
+      state.obstacles.push({ type:'mine', x:W+30, y, baseY:y, r:17, speed:state.speed*0.5, phase:'idle', timer:0, drift:Math.random()*10 });
+    } else if(type==='spinner'){
+      const y=Math.random()*(H-160)+80;
+      state.obstacles.push({ type:'spinner', x:W+40, y, speed:state.speed*0.75, ang:Math.random()*Math.PI*2, spin:2.4, dist:34, r:11 });
+    } else if(type==='pulsar'){
+      const y=Math.random()*(H-140)+70;
+      state.obstacles.push({ type:'pulsar', x:W+40, y, speed:state.speed*0.6, phase:Math.random()*Math.PI*2, baseR:11, maxR:30 });
+    } else if(type==='asteroid'){
+      const r=Math.random()*22+16; const y=Math.random()*(H-2*r)+r;
+      state.obstacles.push({ type:'asteroid', x:W+r, y, r, speed:state.speed+Math.random()*70, rot:Math.random()*Math.PI, rotSpeed:(Math.random()-0.5)*2 });
+    } else if(type==='comet'){
+      const r=Math.random()*14+12; const y=Math.random()*(H-2*r)+r;
+      state.obstacles.push({ type:'comet', x:W+r, y, baseY:y, r, speed:state.speed*1.2+Math.random()*50, phase:Math.random()*Math.PI*2, trailT:0 });
+    } else if(type==='swarmlet'){
+      const baseY=Math.random()*(H-140)+70; const count=4;
+      for(let i=0;i<count;i++) state.obstacles.push({ type:'swarmlet', x:W+30+i*26, y:baseY, baseY, r:9, speed:state.speed*1.25, phase:i*0.9, amp:34 });
+    }
+  }
+  function spawnSpecial(){
+    const types = currentTypes().filter(t=>t==='laser'||t==='blackhole');
+    if(types.length===0) return;
+    const type = types[Math.floor(Math.random()*types.length)];
+    unlockObstacleCodex(type);
+    if(type==='laser'){
+      const y=Math.random()*(H-140)+70;
+      state.obstacles.push({ type:'laser', x:W-60, y, speed:state.speed*0.28, band:38, timer:0, phase:'charge', chargeTime:0.85, fireTime:0.32 });
+      sfxLaserCharge(); sfxObstacleWarning('laser');
+    } else if(type==='blackhole'){
+      const y=Math.random()*(H-160)+80;
+      state.obstacles.push({ type:'blackhole', x:W+40, y, r:26, pullRadius:150, speed:state.speed*0.5, rot:0 });
+      sfxObstacleWarning('blackhole');
+    }
+  }
+  function spawnGem(){
+    const r=9; const y=Math.random()*(H-2*r-40)+r+20;
+    state.gems.push({ x:W+r, y, r, speed:state.speed*0.95, phase:Math.random()*Math.PI*2 });
+  }
+  function spawnPowerup(){
+    const keysArr=Object.keys(POWER_TYPES); const type=keysArr[Math.floor(Math.random()*keysArr.length)];
+    const r=12; const y=Math.random()*(H-2*r-60)+r+30;
+    state.powerups.push({ type, x:W+r, y, r, speed:state.speed*0.9, phase:Math.random()*Math.PI*2 });
+  }
+
+  function dist(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }
+
+  // ================= BOSS =================
+  const BOSS_ATTACKS = ['laser','burst','homing','blackhole','dash'];
+  const BOSS_INTRO_DURATION = 2.8;
+  const BOSS_DEATH_DURATION = 2.6;
+  const PLAYER_DEATH_DURATION = 1.1;
+  function bossAttackInterval(key, enraged){
+    const base = { laser:5.5, burst:2.6, homing:4.2, blackhole:6.5, dash:5.2 };
+    const b = base[key]*(enraged?0.62:1);
+    return b + Math.random()*(enraged?0.8:1.5);
+  }
+  function spawnBoss(){
+    state.boss = {
+      x:W*0.78, y:H/2, baseY:H/2, r:74, hp:190, maxHp:190, t:0,
+      enraged:false, dashState:null,
+      attackTimer:2.4,
+      attackCooldowns:{ laser:1.5, burst:0.4, homing:3, blackhole:4.5, dash:5 },
+    };
+    state.inBossFight = true; state.bossGemTimer=0.6;
+    bossBar.classList.remove('hidden');
+    const bn=document.getElementById('bossNameEl'); bn.textContent='👑 GARDIEN STELLAIRE'; bn.style.color='';
+    showToast('⚔️ Le combat commence !');
+  }
+
+  // ---- Approach / intro sequence ----
+  function startBossIntro(){
+    state.sequence='intro'; state.seqT=0; state.invulnerable=true; state.approaching=false;
+    state.obstacles=[];
+    bossIntroBanner.innerHTML = '👑 LE GARDIEN STELLAIRE<span class="sub">Préparez-vous...</span>';
+    bossIntroBanner.classList.add('show');
+    if(scaryGain) scaryGain.gain.value = 0.26 * (save.musicVolume==null?1:save.musicVolume);
+    state.shake = 0.5;
+    blip(90,0.5,'sawtooth',0.2); blip(60,0.7,'square',0.18,0.15); blip(200,0.4,'sine',0.1,0.3);
+  }
+  function endBossIntro(){
+    bossIntroBanner.classList.remove('show');
+    state.sequence=null; state.invulnerable=false;
+    spawnBoss();
+    musicFadeIn(bossFightGain, 0.2, 1.2);
+  }
+
+  // ---- Boss death sequence ----
+  function defeatBoss(){
+    if(!state.boss || state.sequence) return;
+    state.deathBoss = { x:state.boss.x, y:state.boss.y, r:state.boss.r, timer:0, nextBurst:0.05 };
+    state.sequence='bossDeath'; state.seqT=0; state.invulnerable=true;
+    state.inBossFight=false; state.boss=null; state.obstacles=[];
+    bossBar.classList.add('hidden');
+    musicCut(ambientGain); musicCut(scaryGain); musicCut(bossFightGain);
+    state.shake=0.6;
+  }
+  function finalizeBossDefeat(){
+    state.sequence=null; state.deathBoss=null; state.invulnerable=false;
+    state.bossDefeatedThisRun=true; state.infiniteMode=true; state.infiniteT=0; state.infinitePaletteTimer=1;
+    save.infiniteUnlocked = true; persistSave(); refreshMenuStats();
+    galaxyTagEl.textContent = 'Zone Infinie ∞';
+    galaxyTagEl.classList.remove('hidden');
+    showToast('👑 Gardien vaincu ! Mode infini activé');
+    unlockAchievement('bossDefeated');
+    sfxVictory();
+    musicFadeIn(ambientGain, 0.16, 1.4);
+  }
+  function fireBossAttack(type, b){
+    if(type==='laser'){
+      state.obstacles.push({ type:'laser', x:b.x-30, y:b.y, speed:0, band:b.enraged?58:48, timer:0, phase:'charge', chargeTime:0.85, fireTime:b.enraged?0.5:0.4 });
+      sfxLaserCharge();
+    } else if(type==='burst'){
+      const offs = b.enraged? [-90,-30,30,90] : [-70,0,70];
+      offs.forEach(off=>{
+        state.obstacles.push({ type:'asteroid', x:b.x, y:b.y+off, r:19, speed:state.speed*(b.enraged?1.2:1.05), rot:0, rotSpeed:(Math.random()-0.5)*2 });
+      });
+    } else if(type==='homing'){
+      const count = b.enraged?3:2;
+      for(let i=0;i<count;i++){
+        state.obstacles.push({ type:'homingOrb', x:b.x-20, y:b.y+(i-((count-1)/2))*44, r:13, speed:state.speed*0.55, vy:0 });
+      }
+      unlockObstacleCodex('homingOrb'); sfxObstacleWarning('homingOrb');
+      showToast('🔮 Orbes traqueurs !');
+    } else if(type==='blackhole'){
+      state.obstacles.push({ type:'blackhole', x:b.x-10, y:b.y, r:24, pullRadius:170, speed:state.speed*0.42, rot:0 });
+    } else if(type==='dash'){
+      b.dashState = {
+        stage:'telegraph', timer:0,
+        startX:b.x, startY:b.y,
+        targetX: Math.max(state.player.x+140, W*0.35), targetY: state.player.y
+      };
+      showToast('💢 Le Gardien charge !');
+    }
+  }
+  function updateBoss(dt){
+    const b=state.boss; if(!b) return;
+    const slowActive = state.activePowers.slow;
+    const bdt = slowActive ? dt*0.5 : dt;
+    b.t += bdt;
+
+    if(!b.enraged && b.hp <= b.maxHp*0.5){
+      b.enraged = true; state.shake = Math.max(state.shake,0.6); sfxEnrage();
+      const bn=document.getElementById('bossNameEl'); bn.textContent='💢 GARDIEN ENRAGÉ'; bn.style.color='#FF2E3A';
+      showToast('⚠️ Le Gardien s\'enrage !');
+    }
+
+    // movement / dash (slowed by the Ralenti boost)
+    if(b.dashState){
+      const d=b.dashState; d.timer += bdt;
+      if(d.stage==='telegraph'){
+        if(d.timer>=0.7){ d.stage='lunge'; d.timer=0; }
+      } else if(d.stage==='lunge'){
+        const pr=Math.min(1, d.timer/0.35);
+        b.x = d.startX+(d.targetX-d.startX)*pr; b.y = d.startY+(d.targetY-d.startY)*pr;
+        if(pr>=1){ d.stage='hold'; d.timer=0; }
+      } else if(d.stage==='hold'){
+        if(d.timer>=0.35){ d.stage='return'; d.timer=0; }
+      } else if(d.stage==='return'){
+        const pr=Math.min(1, d.timer/0.6);
+        b.x = d.targetX+(d.startX-d.targetX)*pr; b.y = d.targetY+(d.startY-d.targetY)*pr;
+        if(pr>=1){ b.dashState=null; }
+      }
+    } else {
+      b.y = b.baseY + Math.sin(b.t*(b.enraged?1.05:0.7))*(b.enraged?70:55);
+    }
+
+    for(const k of Object.keys(b.attackCooldowns)) b.attackCooldowns[k] -= bdt;
+    b.attackTimer -= bdt;
+    if(!b.dashState && b.attackTimer<=0){
+      const ready = BOSS_ATTACKS.filter(k=>b.attackCooldowns[k]<=0);
+      if(ready.length){
+        const pick = ready[Math.floor(Math.random()*ready.length)];
+        fireBossAttack(pick, b);
+        b.attackCooldowns[pick] = bossAttackInterval(pick, b.enraged);
+        b.attackTimer = (b.enraged?0.9:1.4) + Math.random()*0.6;
+      }
+    }
+
+    state.bossGemTimer -= bdt;
+    if(state.bossGemTimer<=0){
+      const gy = b.y + (Math.random()-0.5)*100;
+      state.gems.push({ x:b.x-120-Math.random()*40, y:gy, r:9, speed:state.speed*0.85, phase:Math.random()*Math.PI*2, boss:true });
+      state.bossGemTimer = 0.85+Math.random()*0.4;
+    }
+    bossHpFill.style.width = Math.max(0,(b.hp/b.maxHp*100))+'%';
+    const d = dist(state.player.x,state.player.y,b.x,b.y);
+    if(d < b.r*0.6 + state.player.r*0.7) playerHit(null);
+  }
+  // ================= POWER ACTIVATION =================
+  function activatePower(type){
+    sfxPower();
+    if(type==='shield'){ state.activePowers.shield={ timeLeft:Infinity, total:Infinity }; showToast('🛡️ Bouclier activé'); }
+    else{ const def=POWER_TYPES[type]; state.activePowers[type]={ timeLeft:def.duration, total:def.duration }; showToast(def.icon+' '+def.label+' !'); }
+  }
+
+  // ================= HIT HANDLING =================
+  function playerHit(removeFn){
+    if(state.invulnerable){ if(removeFn) removeFn(); return; }
+    if(state.activePowers.shield){
+      delete state.activePowers.shield;
+      state.shieldUsedThisRun = true;
+      if(removeFn) removeFn();
+      state.shake=0.5; spawnBurst(state.player.x, state.player.y, '0,240,255', 22, 3.5);
+      showToast('🛡️ Bouclier absorbé !'); blip(880,0.12,'sine',0.15);
+      return;
+    }
+    if(removeFn) removeFn();
+    startPlayerDeath();
+  }
+  function startPlayerDeath(){
+    if(state.sequence) return;
+    state.sequence='playerDeath'; state.seqT=0; state.invulnerable=true;
+    state.deathPlayer={ timer:0, nextBurst:0 };
+    state.shake=1; sfxHit();
+    spawnBurst(state.player.x, state.player.y, '255,46,136', 30, 4.5);
+    musicCut(ambientGain); musicCut(scaryGain); musicCut(bossFightGain);
+  }
+  function finalizePlayerDeath(){
+    state.sequence=null; state.invulnerable=false; state.deathPlayer=null;
+    endGame();
+  }
+
+  // ================= SEQUENCE HANDLING (intro / mort boss / mort joueur) =================
+  function updateSequence(dt){
+    state.seqT += dt;
+    if(state.sequence==='intro'){
+      if(state.seqT>=BOSS_INTRO_DURATION) endBossIntro();
+    } else if(state.sequence==='bossDeath'){
+      const db=state.deathBoss; if(!db) { finalizeBossDefeat(); return; }
+      db.timer += dt;
+      if(db.timer>=db.nextBurst){
+        const progress = Math.min(1, state.seqT/BOSS_DEATH_DURATION);
+        spawnBurst(db.x, db.y, Math.random()<0.5?'255,201,60':'255,46,136', 12+Math.floor(progress*32), 3+progress*5.5);
+        state.shake = Math.max(state.shake, 0.3+progress*0.9);
+        const vol = 0.07+progress*0.32;
+        blip(55+Math.random()*45, 0.4, 'sawtooth', vol);
+        blip(110+Math.random()*90, 0.28, 'square', vol*0.7, 0.05);
+        db.timer=0; db.nextBurst = Math.max(0.11, 0.48-progress*0.38);
+      }
+      if(state.seqT>=BOSS_DEATH_DURATION){
+        spawnBurst(db.x, db.y, '255,255,255', 70, 8);
+        blip(40,0.9,'sawtooth',0.4); blip(30,1.1,'square',0.32,0.08);
+        finalizeBossDefeat();
+      }
+    } else if(state.sequence==='playerDeath'){
+      const dp=state.deathPlayer; if(!dp){ finalizePlayerDeath(); return; }
+      dp.timer += dt;
+      if(dp.timer>=dp.nextBurst){
+        spawnBurst(state.player.x, state.player.y, Math.random()<0.5?'255,46,136':'255,120,60', 10, 3.5);
+        state.shake = Math.max(state.shake, 0.55);
+        dp.timer=0; dp.nextBurst=0.12;
+      }
+      if(state.seqT>=PLAYER_DEATH_DURATION) finalizePlayerDeath();
+    }
+  }
+
+  // ================= SPEED / PACING =================
+  function computeSpeed(){
+    let s = 230 + Math.min(state.t*3, 220) + densityIdx()*13;
+    if(state.infiniteMode) s += Math.min(state.infiniteT*2, 260);
+    return s;
+  }
+
+  // ================= FX (particles / shake, always updated) =================
+  function updateFx(dt){
+    for(let i=state.particles.length-1;i>=0;i--){
+      const pt=state.particles[i]; pt.x+=pt.vx*dt*60; pt.y+=pt.vy*dt*60;
+      pt.vx*=0.92; pt.vy*=0.92; pt.life-=dt*pt.decay; if(pt.life<=0) state.particles.splice(i,1);
+    }
+    state.shake = Math.max(0, state.shake-dt*3.2);
+  }
+
+  // ================= UPDATE =================
+  function update(dt){
+    state.t += dt;
+
+    if(state.sequence){
+      updateSequence(dt);
+      updateFx(dt);
+      return;
+    }
+
+    const multActive = state.activePowers.mult;
+    const scoreMult = multActive?2:1;
+    state.score += dt*(10+state.combo*2.2)*scoreMult;
+    updateGalaxyTag(false);
+
+    if(!state.infiniteMode && !state.bossDefeatedThisRun && !state.inBossFight && !state.boss){
+      const approachStart = GALAXIES[BOSS_INDEX-1].threshold;
+      const bossThreshold = GALAXIES[BOSS_INDEX].threshold;
+      if(!state.approaching && state.score>=approachStart && state.score<bossThreshold){
+        state.approaching = true;
+        musicCut(ambientGain);
+        showToast('⚠️ Une présence se fait sentir...');
+      }
+      if(state.approaching){
+        const progress = Math.max(0, Math.min(1, (state.score-approachStart)/(bossThreshold-approachStart)));
+        if(scaryGain) scaryGain.gain.value = progress*0.24 * (save.musicVolume==null?1:save.musicVolume);
+        if(state.score>=bossThreshold){ startBossIntro(); updateFx(dt); return; }
+      }
+    }
+    if(state.bgBlend<1) state.bgBlend = Math.min(1, state.bgBlend + dt/1.4);
+
+    if(state.infiniteMode){
+      state.infiniteT += dt;
+      state.infinitePaletteTimer -= dt;
+      if(state.infinitePaletteTimer<=0){
+        state.bgFrom = state.bgTo;
+        let next; do{ next = INFINITE_PALETTES[Math.floor(Math.random()*INFINITE_PALETTES.length)]; } while(next===state.bgFrom);
+        state.bgTo = next; state.bgBlend=0; state.infinitePaletteTimer = 13+Math.random()*6;
+      }
+      if(state.bgBlend<1) state.bgBlend = Math.min(1, state.bgBlend + dt/2.2);
+
+      state.artifactTimer -= dt;
+      if(state.artifactTimer<=0){ spawnArtifactPickup(); state.artifactTimer = 13+Math.random()*9; }
+    }
+
+    const slowActive = state.activePowers.slow;
+    const speedFactor = slowActive?0.5:1;
+    state.speed = computeSpeed();
+
+    // player
+    const p = state.player;
+    p.y += (p.targetY-p.y)*Math.min(1,dt*10);
+    p.y = Math.max(p.r, Math.min(H-p.r, p.y));
+    if(keys['ArrowUp']) p.targetY -= 8;
+    if(keys['ArrowDown']) p.targetY += 8;
+    p.trail.unshift({x:p.x,y:p.y}); if(p.trail.length>14) p.trail.pop();
+
+    if(state.activePowers.magnet){
+      for(const g of state.gems){
+        const d = dist(p.x,p.y,g.x,g.y);
+        if(d<220){ g.x += (p.x-g.x)*Math.min(1,dt*6); g.y += (p.y-g.y)*Math.min(1,dt*6); }
+      }
+    }
+
+    if(state.inBossFight){
+      updateBoss(dt);
+    } else {
+      state.spawnTimer -= dt;
+      const dIdx = densityIdx();
+      let spawnEvery = Math.max(0.5, 1.05 - state.t*0.005 - dIdx*0.02);
+      if(state.infiniteMode) spawnEvery = Math.max(0.32, spawnEvery - state.infiniteT*0.003);
+      if(state.spawnTimer<=0){ spawnObstacle(); state.spawnTimer = spawnEvery+Math.random()*0.25; }
+
+      state.specialTimer -= dt;
+      let specialEvery = Math.max(4.2, 7-dIdx*0.22);
+      if(state.infiniteMode) specialEvery = Math.max(3, specialEvery - Math.min(state.infiniteT*0.02,2.5));
+      if(state.specialTimer<=0){ spawnSpecial(); state.specialTimer = specialEvery+Math.random()*2.5; }
+    }
+
+    state.gemTimer -= dt;
+    let gemEvery = state.inBossFight ? 999 : 1.6+Math.random()*1.3;
+    if(state.gemTimer<=0){ spawnGem(); state.gemTimer = gemEvery; }
+    state.powerupTimer = (state.powerupTimer||6) - dt;
+    if(state.powerupTimer<=0){ spawnPowerup(); state.powerupTimer = 11+Math.random()*6; }
+
+    // obstacles
+    for(let i=state.obstacles.length-1;i>=0;i--){
+      const o = state.obstacles[i];
+      if(o.type==='asteroid'){
+        o.x -= o.speed*speedFactor*dt; o.rot += o.rotSpeed*dt;
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-6){ const idx=i; playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='comet'){
+        o.x -= o.speed*speedFactor*dt; o.y = o.baseY + Math.sin(o.x*0.012+o.phase)*40;
+        o.trailT += dt; if(o.trailT>0.03){ o.trailT=0; spawnBurst(o.x+o.r,o.y,'255,138,60',1,0.6); }
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-6){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='swarmlet'){
+        o.x -= o.speed*speedFactor*dt; o.y = o.baseY + Math.sin(state.t*3.4+o.phase)*o.amp;
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-5){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='laser'){
+        o.x -= o.speed*speedFactor*dt; o.timer += dt*speedFactor;
+        if(o.phase==='charge' && o.timer>=o.chargeTime){ o.phase='fire'; o.timer=0; sfxLaserFire(); }
+        else if(o.phase==='fire' && o.timer>=o.fireTime){ o.phase='done'; }
+        if(o.phase==='fire' && Math.abs(p.y-o.y) < o.band/2+p.r*0.4){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+        if(o.phase==='done' || o.x< -80){ state.obstacles.splice(i,1); continue; }
+      } else if(o.type==='blackhole'){
+        o.x -= o.speed*speedFactor*dt; o.rot += dt*1.5;
+        const d = dist(p.x,p.y,o.x,o.y);
+        if(d < o.pullRadius){ const pull=(1-d/o.pullRadius)*0.18; p.targetY += (o.y-p.targetY)*pull*dt*6; }
+        if(d < o.r+p.r-8){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+        if(o.x < -o.r-40){ state.obstacles.splice(i,1); continue; }
+      } else if(o.type==='homingOrb'){
+        o.x -= o.speed*speedFactor*dt;
+        const desiredVy = (p.y-o.y)*0.9;
+        o.vy += (desiredVy-o.vy)*Math.min(1,dt*1.6);
+        o.y += o.vy*dt*0.5;
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-6){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='gate'){
+        o.x -= o.speed*speedFactor*dt; o.phase += dt*speedFactor*1.3;
+        o.gapY = o.baseGapY + Math.sin(o.phase)*o.amp;
+        o.gapY = Math.max(o.gapH/2+30, Math.min(H-o.gapH/2-30, o.gapY));
+        if(o.x < -80){ state.obstacles.splice(i,1); continue; }
+        if(Math.abs(p.x-o.x) < o.thickness/2 + p.r*0.55){
+          if(p.y-p.r*0.3 < o.gapY-o.gapH/2 || p.y+p.r*0.3 > o.gapY+o.gapH/2){
+            playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); });
+          }
+        }
+      } else if(o.type==='spinner'){
+        o.x -= o.speed*speedFactor*dt; o.ang += o.spin*speedFactor*dt;
+        if(o.x < -o.dist-40){ state.obstacles.splice(i,1); continue; }
+        for(const off of [0,Math.PI]){
+          const ox=o.x+Math.cos(o.ang+off)*o.dist, oy=o.y+Math.sin(o.ang+off)*o.dist;
+          if(dist(p.x,p.y,ox,oy) < p.r+o.r-5){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); break; }
+        }
+      } else if(o.type==='pulsar'){
+        o.x -= o.speed*speedFactor*dt; o.phase += dt*speedFactor*2.2;
+        o.r = o.baseR + (o.maxR-o.baseR)*(0.5+0.5*Math.sin(o.phase));
+        if(o.x < -o.maxR-30){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-5){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='pincer'){
+        o.x -= o.speed*speedFactor*dt;
+        const closeProgress = Math.max(0, Math.min(1, 1-(o.x-p.x)/(W*0.6)));
+        o.curGapH = o.gapH - (o.gapH-o.minGapH)*closeProgress;
+        if(o.x < -80){ state.obstacles.splice(i,1); continue; }
+        if(Math.abs(p.x-o.x) < o.thickness/2 + p.r*0.55){
+          if(p.y-p.r*0.3 < o.gapY-o.curGapH/2 || p.y+p.r*0.3 > o.gapY+o.curGapH/2){
+            playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); });
+          }
+        }
+      } else if(o.type==='seeker'){
+        o.x -= o.speed*speedFactor*dt;
+        const desiredVy = (p.y-o.y)*0.55;
+        o.vy += (desiredVy-o.vy)*Math.min(1,dt*1.1);
+        o.y += o.vy*dt*0.5;
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-6){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='flare'){
+        o.x -= o.speed*speedFactor*dt;
+        const desiredVy = (p.y-o.y)*0.85;
+        o.vy += (desiredVy-o.vy)*Math.min(1,dt*2.0);
+        o.y += o.vy*dt*0.62;
+        if(o.x < -o.r-20){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-6){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='voidwall'){
+        o.x -= o.speed*speedFactor*dt; o.phase += dt*speedFactor*1.6;
+        const closeProgress = Math.max(0, Math.min(1, 1-(o.x-p.x)/(W*0.55)));
+        o.gapY = o.baseGapY + Math.sin(o.phase)*o.amp;
+        o.gapY = Math.max(o.gapH/2+30, Math.min(H-o.gapH/2-30, o.gapY));
+        o.curGapH = o.gapH - (o.gapH-o.minGapH)*closeProgress;
+        if(o.x < -80){ state.obstacles.splice(i,1); continue; }
+        if(Math.abs(p.x-o.x) < o.thickness/2 + p.r*0.55){
+          if(p.y-p.r*0.3 < o.gapY-o.curGapH/2 || p.y+p.r*0.3 > o.gapY+o.curGapH/2){
+            playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); });
+          }
+        }
+      } else if(o.type==='mine'){
+        o.x -= o.speed*speedFactor*dt; o.y = o.baseY + Math.sin(state.t*1.4+o.drift)*22;
+        if(o.phase==='idle' && o.x - p.x < 260) { o.phase='armed'; o.timer=0; }
+        else if(o.phase==='armed'){
+          o.timer += dt;
+          if(o.timer>=0.55){
+            spawnBurst(o.x,o.y,'255,120,40',30,5);
+            blip(90,0.3,'sawtooth',0.22); blip(50,0.4,'square',0.18,0.05);
+            unlockObstacleCodex('shrapnel');
+            for(let k=0;k<6;k++){
+              const ang=k/6*Math.PI*2;
+              state.obstacles.push({ type:'shrapnel', x:o.x, y:o.y, vx:Math.cos(ang)*260, vy:Math.sin(ang)*260, r:6, life:1.1 });
+            }
+            state.obstacles.splice(i,1); continue;
+          }
+        }
+        if(o.x < -o.r-30){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-4){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      } else if(o.type==='shrapnel'){
+        o.x += o.vx*speedFactor*dt; o.y += o.vy*speedFactor*dt; o.life -= dt;
+        if(o.life<=0 || o.x<-40 || o.x>W+40 || o.y<-40 || o.y>H+40){ state.obstacles.splice(i,1); continue; }
+        if(dist(p.x,p.y,o.x,o.y) < p.r+o.r-2){ playerHit(()=>{ const j=state.obstacles.indexOf(o); if(j>=0) state.obstacles.splice(j,1); }); }
+      }
+    }
+
+    // gems
+    for(let i=state.gems.length-1;i>=0;i--){
+      const g=state.gems[i]; g.x -= g.speed*speedFactor*dt; g.phase+=dt*4;
+      if(g.x<-30){ state.gems.splice(i,1); continue; }
+      if(dist(p.x,p.y,g.x,g.y) < p.r+g.r+4){
+        const wasBoss = g.boss; state.gems.splice(i,1); onCollect(g.x,g.y);
+        if(wasBoss && state.boss){ state.boss.hp -= 7; sfxBossHit(); if(state.boss.hp<=0) defeatBoss(); }
+      }
+    }
+
+    // powerups
+    for(let i=state.powerups.length-1;i>=0;i--){
+      const pu=state.powerups[i]; pu.x -= pu.speed*speedFactor*dt; pu.phase+=dt*3;
+      if(pu.x<-30){ state.powerups.splice(i,1); continue; }
+      if(dist(p.x,p.y,pu.x,pu.y) < p.r+pu.r+4){ state.powerups.splice(i,1); activatePower(pu.type); }
+    }
+
+    // artifacts (Zone Infinie only)
+    for(let i=state.artifacts.length-1;i>=0;i--){
+      const a=state.artifacts[i]; a.x -= a.speed*speedFactor*dt; a.phase+=dt*3; a.spawnT+=dt;
+      if(a.x<-40){ state.artifacts.splice(i,1); continue; }
+      if(dist(p.x,p.y,a.x,a.y) < p.r+a.r+6){ state.artifacts.splice(i,1); onCollectArtifact(a.def); }
+    }
+
+    for(const key of Object.keys(state.activePowers)){
+      const ap = state.activePowers[key]; if(ap.total===Infinity) continue;
+      ap.timeLeft -= dt; if(ap.timeLeft<=0) delete state.activePowers[key];
+    }
+
+    updateFx(dt);
+
+    scoreVal.textContent = Math.floor(state.score);
+    comboVal.textContent = '×'+state.combo;
+    crystalRunVal.textContent = '◆ '+state.crystalsThisRun;
+    renderPowerbar();
+  }
+
+  function onCollect(x,y){
+    state.comboProgress++;
+    if(state.comboProgress%3===0) state.combo = Math.min(20, state.combo+1);
+    state.maxCombo = Math.max(state.maxCombo, state.combo);
+    const mult = state.activePowers.mult?2:1;
+    state.score += (25+state.combo*4)*mult;
+    state.crystalsThisRun += 1; save.totalCrystals += 1;
+    spawnBurst(x,y,'180,255,57',16,3.2);
+    sfxCollect(state.combo);
+  }
+
+  // ================= POWERBAR UI =================
+  const powerbarEl = document.getElementById('powerbar');
+  function renderPowerbar(){
+    const active = Object.entries(state.activePowers);
+    powerbarEl.innerHTML='';
+    for(const [key,ap] of active){
+      const def=POWER_TYPES[key]; const chip=document.createElement('div'); chip.className='power-chip';
+      const pct = ap.total===Infinity?100:Math.max(0,(ap.timeLeft/ap.total)*100);
+      chip.innerHTML = `<span class="ic">${def.icon}</span><div class="bar"><i style="width:${pct}%; background:rgb(${def.color})"></i></div>`;
+      powerbarEl.appendChild(chip);
+    }
+    powerbarEl.style.left = state.player.x+'px';
+    powerbarEl.style.top = (state.player.y - state.player.r - 14)+'px';
+  }
+
+  // ================= DRAW =================
+  function drawBackground(){
+    const from=state.bgFrom, to=state.bgTo, b=state.bgBlend;
+    function lerpC(c1,c2){ return c1.map((v,i)=>Math.round(v+(c2[i]-v)*b)); }
+    const top=lerpC(from[0],to[0]), bot=lerpC(from[1],to[1]);
+    const grad=ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0, `rgb(${bot.join(',')})`); grad.addColorStop(1, `rgb(${top.join(',')})`);
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    drawDecor();
+    for(const s of state.stars){
+      s.x -= s.s*0.016; if(s.x<-5){ s.x=W+5; s.y=Math.random()*H; }
+      ctx.globalAlpha=s.a; ctx.fillStyle='#cfe0ff';
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawPlayer(){
+    const p=state.player; const skin = SKINS[save.selectedSkin] || SKINS.default;
+    for(let i=p.trail.length-1;i>=0;i--){
+      const t=p.trail[i]; const a=(1-i/p.trail.length)*0.32;
+      ctx.globalAlpha=a; ctx.fillStyle=skin.glow;
+      ctx.beginPath(); ctx.arc(t.x,t.y,p.r*(1-i/p.trail.length*0.6),0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    const ringR = p.r+11;
+    ctx.beginPath(); ctx.strokeStyle='rgba(180,255,57,0.22)'; ctx.lineWidth=3; ctx.arc(p.x,p.y,ringR,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.strokeStyle='#B4FF39'; ctx.lineWidth=3;
+    const progFrac = ((state.comboProgress)%3)/3;
+    ctx.arc(p.x,p.y,ringR,-Math.PI/2,-Math.PI/2+Math.PI*2*progFrac); ctx.stroke();
+    if(state.activePowers.shield){ ctx.beginPath(); ctx.strokeStyle='rgba(0,240,255,0.7)'; ctx.lineWidth=2.5; ctx.arc(p.x,p.y,ringR+7,0,Math.PI*2); ctx.stroke(); }
+    skin.draw(ctx, p.x,p.y,p.r,state.t);
+  }
+
+  function drawObstacles(){
+    for(const o of state.obstacles){
+      if(o.type==='asteroid'){
+        ctx.save(); ctx.translate(o.x,o.y); ctx.rotate(o.rot);
+        ctx.shadowColor='#FF2E88'; ctx.shadowBlur=18; ctx.fillStyle='#1c0f22'; ctx.strokeStyle='#FF2E88'; ctx.lineWidth=2.5;
+        ctx.beginPath(); const spikes=7;
+        for(let i=0;i<spikes;i++){ const ang=(i/spikes)*Math.PI*2; const rr=o.r*(i%2===0?1:0.72);
+          const x=Math.cos(ang)*rr,y=Math.sin(ang)*rr; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+        ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      } else if(o.type==='comet'){
+        ctx.save(); ctx.shadowColor='#FF8A3C'; ctx.shadowBlur=20;
+        const g=ctx.createRadialGradient(o.x,o.y,1,o.x,o.y,o.r); g.addColorStop(0,'#FFE7B0'); g.addColorStop(1,'#FF5A2E');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,Math.PI*2); ctx.fill(); ctx.restore();
+      } else if(o.type==='swarmlet'){
+        ctx.save(); ctx.translate(o.x,o.y); ctx.shadowColor='#FF2E88'; ctx.shadowBlur=14; ctx.fillStyle='#FF2E88';
+        ctx.beginPath(); ctx.moveTo(o.r,0); ctx.lineTo(-o.r*0.8,o.r*0.8); ctx.lineTo(-o.r*0.8,-o.r*0.8); ctx.closePath(); ctx.fill(); ctx.restore();
+      } else if(o.type==='laser'){
+        const alpha = o.phase==='charge' ? 0.35+0.35*Math.sin(o.timer*22) : 1;
+        ctx.save();
+        if(o.phase==='charge'){
+          ctx.strokeStyle=`rgba(255,60,60,${alpha})`; ctx.setLineDash([10,8]); ctx.lineWidth=2;
+          ctx.beginPath(); ctx.moveTo(0,o.y); ctx.lineTo(W,o.y); ctx.stroke(); ctx.setLineDash([]);
+        } else if(o.phase==='fire'){
+          const grad=ctx.createLinearGradient(0,o.y-o.band/2,0,o.y+o.band/2);
+          grad.addColorStop(0,'rgba(255,60,60,0)'); grad.addColorStop(0.5,'rgba(255,90,90,0.95)'); grad.addColorStop(1,'rgba(255,60,60,0)');
+          ctx.fillStyle=grad; ctx.shadowColor='#FF3C3C'; ctx.shadowBlur=30; ctx.fillRect(0,o.y-o.band/2,W,o.band);
+        }
+        ctx.fillStyle='#FF3C3C'; ctx.shadowColor='#FF3C3C'; ctx.shadowBlur=16;
+        ctx.beginPath(); ctx.arc(o.x,o.y,10,0,Math.PI*2); ctx.fill(); ctx.restore();
+      } else if(o.type==='blackhole'){
+        ctx.save(); ctx.translate(o.x,o.y); ctx.rotate(o.rot);
+        ctx.shadowColor='#9B7BFF'; ctx.shadowBlur=26;
+        const g=ctx.createRadialGradient(0,0,2,0,0,o.r*2.2); g.addColorStop(0,'#000'); g.addColorStop(0.45,'#1a0a2e'); g.addColorStop(1,'rgba(155,123,255,0)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,o.r*2.2,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(155,123,255,0.8)'; ctx.lineWidth=2.5;
+        for(let i=0;i<3;i++){ ctx.beginPath(); ctx.ellipse(0,0,o.r*(1.3+i*0.3), o.r*0.5*(1.3+i*0.3), 0.5, 0, Math.PI*1.4); ctx.stroke(); }
+        ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(0,0,o.r*0.7,0,Math.PI*2); ctx.fill(); ctx.restore();
+      } else if(o.type==='homingOrb'){
+        ctx.save(); ctx.translate(o.x,o.y);
+        ctx.shadowColor='#9B7BFF'; ctx.shadowBlur=20;
+        const g=ctx.createRadialGradient(0,0,1,0,0,o.r); g.addColorStop(0,'#3a1a4e'); g.addColorStop(1,'#150726');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0; ctx.fillStyle='#FF2E88';
+        ctx.beginPath(); ctx.arc(o.r*0.15, 0, o.r*0.35,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      } else if(o.type==='gate'){
+        ctx.save(); ctx.shadowColor='#39D6FF'; ctx.shadowBlur=18; ctx.fillStyle='#0e1a30'; ctx.strokeStyle='#39D6FF'; ctx.lineWidth=2.5;
+        const halfT=o.thickness/2, topH=Math.max(0,o.gapY-o.gapH/2), botY=o.gapY+o.gapH/2, botH=Math.max(0,H-botY);
+        ctx.fillRect(o.x-halfT,0,o.thickness,topH); ctx.strokeRect(o.x-halfT,0,o.thickness,topH);
+        ctx.fillRect(o.x-halfT,botY,o.thickness,botH); ctx.strokeRect(o.x-halfT,botY,o.thickness,botH);
+        ctx.strokeStyle='rgba(57,214,255,0.5)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(o.x-halfT,o.gapY-o.gapH/2); ctx.lineTo(o.x+halfT,o.gapY-o.gapH/2); ctx.moveTo(o.x-halfT,o.gapY+o.gapH/2); ctx.lineTo(o.x+halfT,o.gapY+o.gapH/2); ctx.stroke();
+        ctx.restore();
+      } else if(o.type==='spinner'){
+        ctx.save();
+        ctx.strokeStyle='rgba(155,123,255,0.6)'; ctx.lineWidth=3;
+        const ax=o.x+Math.cos(o.ang)*o.dist, ay=o.y+Math.sin(o.ang)*o.dist;
+        const bx=o.x+Math.cos(o.ang+Math.PI)*o.dist, by=o.y+Math.sin(o.ang+Math.PI)*o.dist;
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+        [[ax,ay],[bx,by]].forEach(([ox,oy])=>{
+          ctx.shadowColor='#9B7BFF'; ctx.shadowBlur=18; ctx.fillStyle='#B18CFF';
+          ctx.beginPath(); ctx.arc(ox,oy,o.r,0,Math.PI*2); ctx.fill();
+        });
+        ctx.restore();
+      } else if(o.type==='pulsar'){
+        ctx.save(); ctx.translate(o.x,o.y);
+        const g=ctx.createRadialGradient(0,0,1,0,0,o.r); g.addColorStop(0,'#FFFFFF'); g.addColorStop(1,'#FF2E88');
+        ctx.shadowColor='#FF2E88'; ctx.shadowBlur=22; ctx.fillStyle=g;
+        ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(0,0,o.maxR+4,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      } else if(o.type==='pincer'){
+        ctx.save(); ctx.shadowColor='#FF6A3C'; ctx.shadowBlur=18; ctx.fillStyle='#2a1408'; ctx.strokeStyle='#FF6A3C'; ctx.lineWidth=2.5;
+        const halfT=o.thickness/2, gh=o.curGapH!==undefined?o.curGapH:o.gapH;
+        const topH=Math.max(0,o.gapY-gh/2), botY=o.gapY+gh/2, botH=Math.max(0,H-botY);
+        ctx.fillRect(o.x-halfT,0,o.thickness,topH); ctx.strokeRect(o.x-halfT,0,o.thickness,topH);
+        ctx.fillRect(o.x-halfT,botY,o.thickness,botH); ctx.strokeRect(o.x-halfT,botY,o.thickness,botH);
+        ctx.restore();
+      } else if(o.type==='seeker'){
+        ctx.save(); ctx.translate(o.x,o.y);
+        ctx.shadowColor='#39FF9E'; ctx.shadowBlur=16;
+        const g=ctx.createRadialGradient(0,0,1,0,0,o.r); g.addColorStop(0,'#E8FFF3'); g.addColorStop(1,'#1C8F5A');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0; ctx.fillStyle='#0B2B1C';
+        ctx.beginPath(); ctx.arc(o.r*0.15,0,o.r*0.32,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      } else if(o.type==='flare'){
+        ctx.save(); ctx.translate(o.x,o.y);
+        ctx.shadowColor='#FF3C1E'; ctx.shadowBlur=22;
+        const g=ctx.createRadialGradient(0,0,1,0,0,o.r); g.addColorStop(0,'#FFF3D8'); g.addColorStop(1,'#FF3C1E');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0; ctx.strokeStyle='rgba(255,138,60,0.65)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(0,0,o.r*1.55,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      } else if(o.type==='voidwall'){
+        ctx.save(); ctx.shadowColor='#C9AFFF'; ctx.shadowBlur=22; ctx.fillStyle='#160b28'; ctx.strokeStyle='#C9AFFF'; ctx.lineWidth=2.5;
+        const halfT=o.thickness/2, gh=o.curGapH!==undefined?o.curGapH:o.gapH;
+        const topH=Math.max(0,o.gapY-gh/2), botY=o.gapY+gh/2, botH=Math.max(0,H-botY);
+        ctx.fillRect(o.x-halfT,0,o.thickness,topH); ctx.strokeRect(o.x-halfT,0,o.thickness,topH);
+        ctx.fillRect(o.x-halfT,botY,o.thickness,botH); ctx.strokeRect(o.x-halfT,botY,o.thickness,botH);
+        ctx.strokeStyle='rgba(201,175,255,0.55)'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(o.x-halfT,o.gapY-gh/2); ctx.lineTo(o.x+halfT,o.gapY-gh/2); ctx.moveTo(o.x-halfT,o.gapY+gh/2); ctx.lineTo(o.x+halfT,o.gapY+gh/2); ctx.stroke();
+        ctx.restore();
+      } else if(o.type==='mine'){
+        const armed=o.phase==='armed';
+        ctx.save(); ctx.translate(o.x,o.y);
+        const pulse = armed? 1+0.3*Math.sin(o.timer*30) : 1+0.08*Math.sin(state.t*3);
+        ctx.shadowColor = armed? '#FF3C3C':'#FF8A3C'; ctx.shadowBlur=20;
+        ctx.fillStyle = armed? '#3a0e0e':'#3a1c0e';
+        ctx.beginPath(); ctx.arc(0,0,o.r*pulse,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = armed? '#FF3C3C':'#FF8A3C'; ctx.lineWidth=2.5; ctx.stroke();
+        ctx.fillStyle = armed? '#FF3C3C':'#FF8A3C';
+        ctx.beginPath(); ctx.arc(0,0,o.r*0.32,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      } else if(o.type==='shrapnel'){
+        ctx.save(); ctx.shadowColor='#FF8A3C'; ctx.shadowBlur=10; ctx.fillStyle='#FFB25E';
+        ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,Math.PI*2); ctx.fill(); ctx.restore();
+      }
+    }
+    if(state.boss){
+      const b=state.boss; const enraged=b.enraged;
+      ctx.save(); ctx.translate(b.x,b.y);
+      const tentColor = enraged? 'rgba(255,46,90,0.75)':'rgba(155,123,255,0.7)';
+      const tentacleCount = enraged?9:7;
+      for(let i=0;i<tentacleCount;i++){
+        const ang=i/tentacleCount*Math.PI*2+b.t*(enraged?1.1:0.8);
+        const len=b.r*(enraged?1.75:1.5);
+        const tx=Math.cos(ang)*len, ty=Math.sin(ang)*len;
+        ctx.strokeStyle=tentColor; ctx.lineWidth=enraged?6:5; ctx.lineCap='round';
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(Math.cos(ang)*b.r*0.8, Math.sin(ang)*b.r*0.8, tx,ty); ctx.stroke();
+      }
+      ctx.strokeStyle = enraged? 'rgba(255,60,60,0.5)':'rgba(255,46,136,0.35)'; ctx.lineWidth=2;
+      for(let i=0;i<16;i++){
+        const ang=i/16*Math.PI*2 - b.t*1.4;
+        const r1=b.r*1.2, r2=b.r*1.35;
+        ctx.beginPath(); ctx.moveTo(Math.cos(ang)*r1,Math.sin(ang)*r1); ctx.lineTo(Math.cos(ang)*r2,Math.sin(ang)*r2); ctx.stroke();
+      }
+      ctx.shadowColor = enraged? '#FF2E3A':'#9B7BFF'; ctx.shadowBlur = enraged?46:34;
+      const g=ctx.createRadialGradient(0,0,4,0,0,b.r);
+      if(enraged){ g.addColorStop(0,'#661626'); g.addColorStop(1,'#1a0508'); } else { g.addColorStop(0,'#4a1e66'); g.addColorStop(1,'#150726'); }
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.strokeStyle= enraged? 'rgba(255,60,60,0.8)':'rgba(255,46,136,0.6)'; ctx.lineWidth=3.5;
+      ctx.beginPath(); ctx.arc(0,0,b.r*1.12,0,Math.PI*2); ctx.stroke();
+      const pulse = enraged? 1+Math.sin(b.t*10)*0.08 : 1;
+      const eyeR = b.r*0.38*pulse;
+      ctx.fillStyle = enraged? '#FF2E3A':'#FF2E88'; ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=22;
+      ctx.beginPath(); ctx.arc(0,0,eyeR,0,Math.PI*2); ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#06131a';
+      const dx = Math.max(-1,Math.min(1,(state.player.y-b.y)/220));
+      const dxx = Math.max(-1,Math.min(1,(state.player.x-b.x)/260));
+      ctx.beginPath(); ctx.arc(dxx*eyeR*0.3, dx*eyeR*0.35, eyeR*0.42,0,Math.PI*2); ctx.fill();
+      if(enraged){
+        ctx.fillStyle='#FF6A3C'; ctx.shadowColor='#FF6A3C'; ctx.shadowBlur=14;
+        ctx.beginPath(); ctx.arc(-b.r*0.55,-b.r*0.5, b.r*0.12,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.r*0.55,-b.r*0.5, b.r*0.12,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0;
+      }
+      if(b.dashState && b.dashState.stage==='telegraph'){
+        const flash = 0.3+0.4*Math.abs(Math.sin(b.t*20));
+        ctx.strokeStyle=`rgba(255,255,255,${flash})`; ctx.lineWidth=4;
+        ctx.beginPath(); ctx.arc(0,0,b.r*1.3,0,Math.PI*2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawGems(){
+    for(const g of state.gems){
+      const bob=Math.sin(g.phase)*4;
+      ctx.save(); ctx.translate(g.x,g.y+bob); ctx.rotate(Math.PI/4);
+      ctx.shadowColor = g.boss? '#FF2E88':'#B4FF39'; ctx.shadowBlur=16; ctx.fillStyle = g.boss? '#FF6FB0':'#B4FF39';
+      ctx.fillRect(-g.r,-g.r,g.r*2,g.r*2); ctx.restore();
+    }
+  }
+  function drawPowerups(){
+    for(const pu of state.powerups){
+      const def=POWER_TYPES[pu.type]; const bob=Math.sin(pu.phase)*5;
+      ctx.save(); ctx.translate(pu.x,pu.y+bob);
+      ctx.shadowColor=`rgb(${def.color})`; ctx.shadowBlur=20;
+      ctx.fillStyle=`rgba(${def.color},0.18)`; ctx.strokeStyle=`rgb(${def.color})`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(0,0,pu.r+4,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff';
+      ctx.fillText(def.icon,0,1); ctx.restore();
+    }
+  }
+  function drawArtifacts(){
+    for(const a of state.artifacts){
+      const rc = RARITIES[a.def.rarity]; const isDivine = a.def.rarity==='divin';
+      const bob = Math.sin(a.phase)*5;
+      ctx.save(); ctx.translate(a.x, a.y+bob);
+      if(isDivine){
+        const flick = 0.7+0.3*Math.sin(a.spawnT*16);
+        for(let i=3;i>=1;i--){
+          ctx.globalAlpha = 0.16*flick/i; ctx.fillStyle='#FFFFFF';
+          ctx.beginPath(); ctx.arc(0,0,a.r*2.6*i,0,Math.PI*2); ctx.fill();
+        }
+        ctx.globalAlpha=1;
+      }
+      ctx.shadowColor = rc.color; ctx.shadowBlur = isDivine?60:20;
+      ctx.strokeStyle = rc.color; ctx.lineWidth = isDivine?3:2;
+      ctx.beginPath(); ctx.arc(0,0,a.r+5,0,Math.PI*2); ctx.stroke();
+      // The artifact's own icon is shown (not a generic rarity shape) so each one is easy to tell apart.
+      ctx.shadowBlur=0; ctx.font=(a.r*1.6)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(a.def.icon||'🏺', 0, 1);
+      ctx.restore();
+    }
+  }
+  function drawParticles(){
+    for(const pt of state.particles){
+      ctx.globalAlpha=Math.max(0,pt.life); ctx.fillStyle=`rgb(${pt.color})`;
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawIntroEffects(){
+    if(state.sequence!=='intro') return;
+    const progress = Math.min(1, state.seqT/BOSS_INTRO_DURATION);
+    const x=W*0.78, y=H/2;
+    ctx.save();
+    ctx.globalAlpha = 0.35+0.25*Math.sin(state.t*6);
+    const r = 40+progress*110;
+    const g=ctx.createRadialGradient(x,y,2,x,y,r);
+    g.addColorStop(0,'rgba(255,46,136,0.55)'); g.addColorStop(0.6,'rgba(155,123,255,0.28)'); g.addColorStop(1,'rgba(255,46,136,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDeathEffects(){
+    if(state.sequence!=='bossDeath' || !state.deathBoss) return;
+    const progress = Math.min(1, state.seqT/BOSS_DEATH_DURATION);
+    const db=state.deathBoss;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1-progress*0.9);
+    const r = db.r*(1-progress*0.4) + progress*160;
+    const g=ctx.createRadialGradient(db.x,db.y,2,db.x,db.y,r);
+    g.addColorStop(0,'rgba(255,255,255,0.9)'); g.addColorStop(0.4,'rgba(255,201,60,0.5)'); g.addColorStop(1,'rgba(255,46,136,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(db.x,db.y,r,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  function render(){
+    ctx.save();
+    if(state.shake>0){ const s=state.shake*10; ctx.translate((Math.random()-0.5)*s,(Math.random()-0.5)*s); }
+    drawBackground(); drawGems(); drawPowerups(); drawArtifacts(); drawObstacles(); drawIntroEffects(); drawDeathEffects(); drawParticles();
+    if(state.running && state.sequence!=='playerDeath') drawPlayer();
+    ctx.restore();
+  }
+
+  let lastTime=null;
+  function loop(ts){
+    if(lastTime===null) lastTime=ts;
+    let dt=(ts-lastTime)/1000; lastTime=ts; dt=Math.min(dt,0.033);
+    if(state.running && !state.paused) update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ================= SCREENS / UI WIRING =================
+  const startScreen=document.getElementById('startScreen');
+  const overScreen=document.getElementById('overScreen');
+  const pauseScreen=document.getElementById('pauseScreen');
+  const skinsScreen=document.getElementById('skinsScreen');
+  const achScreen=document.getElementById('achScreen');
+  const boostsScreen=document.getElementById('boostsScreen');
+  const settingsScreen=document.getElementById('settingsScreen');
+  const encycloScreen=document.getElementById('encycloScreen');
+  const startBtn=document.getElementById('startBtn');
+  const retryBtn=document.getElementById('retryBtn');
+  const openInfinite=document.getElementById('openInfinite');
+  const shareBtn=document.getElementById('shareBtn');
+  const finalScore=document.getElementById('finalScore');
+  const recordTag=document.getElementById('recordTag');
+  const overCrystals=document.getElementById('overCrystals');
+  const copiedMsg=document.getElementById('copiedMsg');
+  const scoreVal=document.getElementById('scoreVal');
+  const comboVal=document.getElementById('comboVal');
+  const bestVal=document.getElementById('bestVal');
+  const crystalRunVal=document.getElementById('crystalRunVal');
+  const hudTop=document.getElementById('hudTop');
+  const pauseBtn=document.getElementById('pauseBtn');
+  const menuBest=document.getElementById('menuBest');
+  const menuCrystals=document.getElementById('menuCrystals');
+  const menuAch=document.getElementById('menuAch');
+  const pauseBoosts=document.getElementById('pauseBoosts');
+  const homeLevelVal=document.getElementById('homeLevelVal');
+  const homeXpFill=document.getElementById('homeXpFill');
+  const homeXpText=document.getElementById('homeXpText');
+  const hudLevelVal=document.getElementById('hudLevelVal');
+  const hudXpFill=document.getElementById('hudXpFill');
+  const overLevelVal=document.getElementById('overLevelVal');
+  const overXpFill=document.getElementById('overXpFill');
+  const overXpText=document.getElementById('overXpText');
+  const overXpGained=document.getElementById('overXpGained');
+
+  function refreshMenuStats(){
+    bestVal.textContent=save.best; menuBest.textContent=save.best;
+    menuCrystals.textContent=save.totalCrystals; menuAch.textContent=save.unlockedAchievements.length+'/'+ACHIEVEMENTS.length;
+    openInfinite.classList.toggle('hidden', !save.infiniteUnlocked);
+    refreshLevelUI();
+  }
+  refreshMenuStats();
+
+  function showGameUI(show){
+    hudTop.style.display = show?'flex':'none';
+    galaxyTagEl.classList.toggle('hidden', !show);
+    pauseBtn.classList.toggle('hidden', !show);
+    document.querySelectorAll('.hud').forEach(h=>{ h.style.display = show?'flex':'none'; });
+    powerbarEl.style.display = show?'flex':'none';
+    if(!show) bossBar.classList.add('hidden');
+  }
+
+  function startGame(){
+    ensureAudio(); if(actx && actx.state==='suspended') actx.resume();
+    setupMusic();
+    resetGame();
+    state.running=true; state.paused=false;
+    startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); pauseScreen.classList.add('hidden');
+    showGameUI(true); sfxStart();
+    musicFadeOut(menuGain, 0.5);
+    musicFadeIn(ambientGain, 0.16, 1);
+  }
+
+  function startInfiniteGame(){
+    ensureAudio(); if(actx && actx.state==='suspended') actx.resume();
+    setupMusic();
+    resetGame();
+    state.running=true; state.paused=false;
+    state.infiniteMode=true; state.infiniteT=0; state.infinitePaletteTimer=1; state.bossDefeatedThisRun=true;
+    galaxyTagEl.textContent='Zone Infinie ∞'; galaxyTagEl.classList.remove('hidden');
+    startScreen.classList.add('hidden'); overScreen.classList.add('hidden'); pauseScreen.classList.add('hidden');
+    showGameUI(true); sfxStart();
+    musicFadeOut(menuGain, 0.5);
+    musicFadeIn(ambientGain, 0.16, 1);
+  }
+
+  function formatDuration(sec){
+    sec = Math.floor(sec); const m = Math.floor(sec/60), s = sec%60;
+    return m>0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+  }
+  const infiniteRecapBlock = document.getElementById('infiniteRecapBlock');
+  function buildInfiniteRecap(){
+    infiniteRecapBlock.innerHTML='';
+    infiniteRecapBlock.classList.remove('hidden');
+    const rows = [
+      ['⏱️ Survie en Zone Infinie', formatDuration(state.infiniteT)],
+      ['🔥 Meilleur combo', '×'+state.maxCombo],
+      ['◆ Cristaux récoltés', String(state.crystalsThisRun)],
+    ];
+    rows.forEach(([label,val])=>{
+      const item=document.createElement('div'); item.className='ach-item unlocked';
+      item.innerHTML = `<div class="aic">${label.split(' ')[0]}</div><div><div class="at">${label.split(' ').slice(1).join(' ')}</div><div class="ad">${val}</div></div>`;
+      infiniteRecapBlock.appendChild(item);
+    });
+    // Artefacts trouvés pendant cette partie, groupés par artefact, avec rareté, nombre et statut de découverte.
+    const counts={};
+    state.runArtifacts.forEach(id=>{ counts[id]=(counts[id]||0)+1; });
+    const ids = Object.keys(counts);
+    const header=document.createElement('p'); header.className='subtitle'; header.style.margin='6px 0 0';
+    header.textContent = ids.length? `🏺 Artefacts trouvés cette partie (${ids.length}) :` : '🏺 Aucun artefact trouvé cette partie.';
+    infiniteRecapBlock.appendChild(header);
+    const order = Object.keys(RARITIES);
+    ids.map(id=>ARTIFACTS.find(a=>a.id===id)).filter(Boolean)
+      .sort((a,b)=> order.indexOf(a.rarity)-order.indexOf(b.rarity) || a.name.localeCompare(b.name))
+      .forEach(art=>{
+        const rc = RARITIES[art.rarity];
+        const count = counts[art.id];
+        const wasKnownBefore = state.artifactsKnownBeforeRun.includes(art.id);
+        const item=document.createElement('div'); item.className='ach-item unlocked'; item.style.borderColor=rc.color+'55';
+        item.innerHTML = `<div class="aic" style="color:${rc.color}">${art.icon}</div>
+          <div><div class="at">${art.name} ${count>1?'×'+count:''}</div>
+          <div class="ad"><span style="color:${rc.color}">${rc.label}</span> · ${wasKnownBefore? 'déjà débloqué avant cette partie':'🆕 nouveau — débloqué à l\'instant !'}</div></div>`;
+        infiniteRecapBlock.appendChild(item);
+      });
+  }
+  function endGame(){
+    state.running=false;
+    const finalScoreVal = Math.floor(state.score);
+    const isRecord = finalScoreVal > save.best;
+    if(isRecord) save.best = finalScoreVal;
+    const xpGained = computeXpGain(finalScoreVal, isRecord);
+    const levelResult = addXp(xpGained);
+    checkRunAchievements();
+    persistSave(); refreshMenuStats();
+    finalScore.textContent = finalScoreVal;
+    recordTag.classList.toggle('hidden', !isRecord);
+    overCrystals.textContent = '◆ '+state.crystalsThisRun+' cristaux récoltés' + (state.bossDefeatedThisRun? ' · 👑 Gardien vaincu':'');
+    const oInfo = levelInfo();
+    overLevelVal.textContent = oInfo.level; overXpFill.style.width = oInfo.pct+'%';
+    overXpText.textContent = `${oInfo.xp} / ${oInfo.need} XP`;
+    overXpGained.textContent = `+${xpGained} XP gagnés`;
+    if(state.infiniteMode){ buildInfiniteRecap(); } else { infiniteRecapBlock.classList.add('hidden'); infiniteRecapBlock.innerHTML=''; }
+    copiedMsg.textContent='';
+    showGameUI(false);
+    setTimeout(()=>{ overScreen.classList.remove('hidden'); }, 350);
+    if(levelResult.levelsGained>0){ setTimeout(()=>showToast('⭐ Niveau '+levelResult.newLevel+' atteint !'), 900); }
+  }
+
+  function buildPauseBoosts(){
+    pauseBoosts.innerHTML='';
+    const activeKeys = Object.keys(state.activePowers);
+    if(activeKeys.length){
+      const h=document.createElement('p'); h.className='subtitle'; h.style.margin='2px 0'; h.textContent='Actifs maintenant :';
+      pauseBoosts.appendChild(h);
+      activeKeys.forEach(key=>{
+        const def=POWER_TYPES[key]; const ap=state.activePowers[key];
+        const timeStr = ap.total===Infinity ? 'en attente d\'un coup' : Math.ceil(ap.timeLeft)+'s restantes';
+        const item=document.createElement('div'); item.className='ach-item unlocked';
+        item.innerHTML = `<div class="aic">${def.icon}</div><div><div class="at">${def.label} — ${timeStr}</div><div class="ad">${def.desc}</div></div>`;
+        pauseBoosts.appendChild(item);
+      });
+    }
+    const h2=document.createElement('p'); h2.className='subtitle'; h2.style.margin='8px 0 2px'; h2.textContent='À quoi servent les boosts :';
+    pauseBoosts.appendChild(h2);
+    Object.values(POWER_TYPES).forEach(def=>{
+      const item=document.createElement('div'); item.className='ach-item locked';
+      item.innerHTML = `<div class="aic">${def.icon}</div><div><div class="at">${def.label}</div><div class="ad">${def.desc}</div></div>`;
+      pauseBoosts.appendChild(item);
+    });
+  }
+
+  function togglePause(){
+    if(!state.running) return;
+    state.paused = !state.paused;
+    if(state.paused) buildPauseBoosts();
+    pauseScreen.classList.toggle('hidden', !state.paused);
+    sfxPause();
+  }
+
+  startBtn.addEventListener('click', startGame);
+  // If the run that just ended was in the Zone Infinie, "REJOUER" sends you back into infinite mode, not the normal boss run.
+  retryBtn.addEventListener('click', ()=>{ if(state.infiniteMode) startInfiniteGame(); else startGame(); });
+  openInfinite.addEventListener('click', startInfiniteGame);
+  pauseBtn.addEventListener('click', togglePause);
+  document.getElementById('resumeBtn').addEventListener('click', togglePause);
+  document.getElementById('restartFromPause').addEventListener('click', ()=>{ const wasInfinite=state.infiniteMode; pauseScreen.classList.add('hidden'); if(wasInfinite) startInfiniteGame(); else startGame(); });
+
+  // ---- Settings screen ----
+  let settingsReturnTo = 'start';
+  const musicVolumeRange=document.getElementById('musicVolumeRange');
+  const sfxVolumeRange=document.getElementById('sfxVolumeRange');
+  const musicVolumeVal=document.getElementById('musicVolumeVal');
+  const sfxVolumeVal=document.getElementById('sfxVolumeVal');
+  function refreshSettingsUI(){
+    musicVolumeRange.value = Math.round(save.musicVolume*100);
+    sfxVolumeRange.value = Math.round(save.sfxVolume*100);
+    musicVolumeVal.textContent = Math.round(save.musicVolume*100)+'%';
+    sfxVolumeVal.textContent = Math.round(save.sfxVolume*100)+'%';
+  }
+  function openSettingsFrom(origin){
+    settingsReturnTo = origin;
+    refreshSettingsUI();
+    if(origin==='pause'){ pauseScreen.classList.add('hidden'); } else { startScreen.classList.add('hidden'); }
+    settingsScreen.classList.remove('hidden');
+  }
+  document.getElementById('openSettings').addEventListener('click', ()=>openSettingsFrom('start'));
+  document.getElementById('settingsFromPause').addEventListener('click', ()=>openSettingsFrom('pause'));
+  document.getElementById('backFromSettings').addEventListener('click', ()=>{
+    settingsScreen.classList.add('hidden');
+    if(settingsReturnTo==='pause'){ pauseScreen.classList.remove('hidden'); } else { startScreen.classList.remove('hidden'); }
+  });
+  musicVolumeRange.addEventListener('input', ()=>{
+    save.musicVolume = (+musicVolumeRange.value)/100; musicVolumeVal.textContent=musicVolumeRange.value+'%';
+    persistSave(); applyMusicVolumeLive();
+  });
+  sfxVolumeRange.addEventListener('input', ()=>{
+    save.sfxVolume = (+sfxVolumeRange.value)/100; sfxVolumeVal.textContent=sfxVolumeRange.value+'%';
+    persistSave();
+  });
+  document.getElementById('resetSaveBtn').addEventListener('click', ()=>{
+    if(!confirm('Réinitialiser toute la progression (record, cristaux, skins, succès, artefacts) ?')) return;
+    save = defaultSave(); persistSave(); refreshMenuStats(); refreshSettingsUI(); showToast('♻️ Progression réinitialisée');
+  });
+
+  // ---- Encyclopédie screen ----
+  const encycloReturnState = { origin:'start' };
+  function openEncycloFrom(origin){
+    encycloReturnState.origin = origin;
+    buildEncyclo();
+    if(origin==='pause'){ pauseScreen.classList.add('hidden'); } else { startScreen.classList.add('hidden'); }
+    encycloScreen.classList.remove('hidden');
+  }
+  document.getElementById('openEncyclo').addEventListener('click', ()=>openEncycloFrom('start'));
+  document.getElementById('encycloFromPause').addEventListener('click', ()=>openEncycloFrom('pause'));
+  document.getElementById('backFromEncyclo').addEventListener('click', ()=>{
+    encycloScreen.classList.add('hidden');
+    if(encycloReturnState.origin==='pause'){ pauseScreen.classList.remove('hidden'); } else { startScreen.classList.remove('hidden'); }
+  });
+
+  document.getElementById('menuFromPause').addEventListener('click', ()=>{
+    state.running=false; state.paused=false; pauseScreen.classList.add('hidden'); showGameUI(false);
+    refreshMenuStats(); startScreen.classList.remove('hidden');
+    musicFadeIn(menuGain, 0.1, 1.4);
+  });
+  document.getElementById('menuFromOver').addEventListener('click', ()=>{
+    overScreen.classList.add('hidden'); refreshMenuStats(); startScreen.classList.remove('hidden');
+    musicFadeIn(menuGain, 0.1, 1.4);
+  });
+
+  // First user gesture anywhere: unlock audio and start the gentle menu music bed (browsers require a gesture to start audio).
+  let menuMusicArmed=false;
+  function armMenuMusic(){
+    if(menuMusicArmed) return; menuMusicArmed=true;
+    ensureAudio(); if(actx && actx.state==='suspended') actx.resume();
+    setupMusic();
+    if(!state.running) musicFadeIn(menuGain, 0.1, 1.6);
+    window.removeEventListener('pointerdown', armMenuMusic);
+    window.removeEventListener('keydown', armMenuMusic);
+  }
+  window.addEventListener('pointerdown', armMenuMusic);
+  window.addEventListener('keydown', armMenuMusic);
+
+  shareBtn.addEventListener('click', async ()=>{
+    const text = `J'ai fait ${Math.floor(state.score)} points sur NEON DODGE 🚀 À toi de faire mieux !`;
+    try{
+      if(navigator.share){ await navigator.share({text}); copiedMsg.textContent=''; }
+      else{ await navigator.clipboard.writeText(text); copiedMsg.textContent='Score copié dans le presse-papiers ✓'; }
+    }catch(e){ copiedMsg.textContent=''; }
+  });
+
+  // ---- Skins screen ----
+  const openSkins=document.getElementById('openSkins');
+  const backFromSkins=document.getElementById('backFromSkins');
+  const skinGrid=document.getElementById('skinGrid');
+  const skinBalance=document.getElementById('skinBalance');
+  const skinSearch=document.getElementById('skinSearch');
+  const skinTabs=document.getElementById('skinTabs');
+  skinSearch.addEventListener('input', ()=>buildSkinGrid());
+
+  let skinActiveTab='all';
+  const SKIN_TAB_DEFS=[{ id:'all', label:'Tous' }, { id:'owned', label:'Débloqués' }, { id:'favorites', label:'★ Favoris' }];
+  function buildSkinTabs(){
+    skinTabs.innerHTML='';
+    SKIN_TAB_DEFS.forEach(tab=>{
+      const btn=document.createElement('button'); btn.className='encyclo-tab'+(skinActiveTab===tab.id?' active':'');
+      btn.textContent=tab.label;
+      btn.addEventListener('click', ()=>{ skinActiveTab=tab.id; buildSkinGrid(); });
+      skinTabs.appendChild(btn);
+    });
+  }
+
+  function drawMiniSkin(canvasEl, skin){
+    const w=52,h=52; canvasEl.width=w*2; canvasEl.height=h*2;
+    const c=canvasEl.getContext('2d'); c.setTransform(2,0,0,2,0,0); c.clearRect(0,0,w,h);
+    skin.draw(c, w/2, h/2, 15, 0.6);
+  }
+
+  function buildSkinGrid(){
+    buildSkinTabs();
+    skinGrid.innerHTML='';
+    skinBalance.textContent = `◆ ${save.totalCrystals} cristaux disponibles`;
+    const query = (skinSearch.value||'').trim().toLowerCase();
+    const sorted = Object.values(SKINS)
+      .filter(s=>!query || s.name.toLowerCase().includes(query))
+      .filter(s=> skinActiveTab!=='owned' || s.unlock.type==='free' || save.unlockedSkins.includes(s.id))
+      .filter(s=> skinActiveTab!=='favorites' || save.favoriteSkins.includes(s.id))
+      .sort((a,b)=>{
+      const fa=save.favoriteSkins.includes(a.id)?0:1, fb=save.favoriteSkins.includes(b.id)?0:1;
+      return fa-fb;
+    });
+    if(sorted.length===0){
+      const empty=document.createElement('p'); empty.className='subtitle';
+      empty.textContent = skinActiveTab==='owned' ? 'Tu ne possèdes encore aucun skin correspondant.'
+        : skinActiveTab==='favorites' ? 'Aucun skin favori pour le moment — appuie sur ★ sur une carte pour l\'ajouter.'
+        : 'Aucun skin ne correspond à ta recherche.';
+      skinGrid.appendChild(empty);
+    }
+    sorted.forEach(skin=>{
+      const unlocked = skin.unlock.type==='free' || save.unlockedSkins.includes(skin.id);
+      const card=document.createElement('div'); card.className='skin-card'+(save.selectedSkin===skin.id?' selected':'');
+      const favBtn=document.createElement('button'); favBtn.className='fav-btn'+(save.favoriteSkins.includes(skin.id)?' active':'');
+      favBtn.textContent='★'; favBtn.title='Favori';
+      favBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const idx=save.favoriteSkins.indexOf(skin.id);
+        if(idx>=0) save.favoriteSkins.splice(idx,1); else save.favoriteSkins.push(skin.id);
+        persistSave(); buildSkinGrid();
+      });
+      card.appendChild(favBtn);
+      const mini=document.createElement('canvas'); const name=document.createElement('div'); name.className='name'; name.textContent=skin.name;
+      card.appendChild(mini); card.appendChild(name);
+      if(unlocked){
+        const btn=document.createElement('button'); btn.className='btn small';
+        btn.textContent = save.selectedSkin===skin.id? 'ÉQUIPÉ':'CHOISIR';
+        btn.disabled = save.selectedSkin===skin.id;
+        btn.addEventListener('click', ()=>{ save.selectedSkin=skin.id; persistSave(); buildSkinGrid(); });
+        card.appendChild(btn);
+      } else {
+        const lock=document.createElement('div'); lock.className='lockinfo'; lock.textContent=skinLockedReason(skin);
+        card.appendChild(lock);
+        if(skin.unlock.type==='crystals'){
+          const btn=document.createElement('button'); btn.className='btn small'; btn.textContent='DÉBLOQUER';
+          btn.disabled = save.totalCrystals < skin.unlock.cost;
+          btn.addEventListener('click', ()=>{
+            if(save.totalCrystals>=skin.unlock.cost){
+              save.totalCrystals -= skin.unlock.cost; save.unlockedSkins.push(skin.id); save.selectedSkin=skin.id;
+              persistSave(); buildSkinGrid(); refreshMenuStats(); showToast('✨ '+skin.name+' débloqué !');
+            }
+          });
+          card.appendChild(btn);
+        }
+      }
+      skinGrid.appendChild(card);
+      drawMiniSkin(mini, skin);
+    });
+  }
+  openSkins.addEventListener('click', ()=>{ buildSkinGrid(); startScreen.classList.add('hidden'); skinsScreen.classList.remove('hidden'); });
+  backFromSkins.addEventListener('click', ()=>{ skinsScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); });
+
+  // ---- Achievements screen ----
+  const openAch=document.getElementById('openAch');
+  const backFromAch=document.getElementById('backFromAch');
+  const achList=document.getElementById('achList');
+  const achProgress=document.getElementById('achProgress');
+  function buildAchList(){
+    achList.innerHTML='';
+    achProgress.textContent = `${save.unlockedAchievements.length} / ${ACHIEVEMENTS.length} débloqués`;
+    const sorted = [...ACHIEVEMENTS].sort((a,b)=>{
+      const fa=save.favoriteAchievements.includes(a.id)?0:1, fb=save.favoriteAchievements.includes(b.id)?0:1;
+      return fa-fb;
+    });
+    sorted.forEach(a=>{
+      const unlocked = save.unlockedAchievements.includes(a.id);
+      const item=document.createElement('div'); item.className='ach-item '+(unlocked?'unlocked':'locked');
+      item.innerHTML = `<div class="aic">${unlocked? a.icon:'🔒'}</div><div><div class="at">${a.name}</div><div class="ad">${a.desc}</div></div>`;
+      const favBtn=document.createElement('button'); favBtn.className='fav-btn'+(save.favoriteAchievements.includes(a.id)?' active':'');
+      favBtn.textContent='★'; favBtn.title='Favori';
+      favBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const idx=save.favoriteAchievements.indexOf(a.id);
+        if(idx>=0) save.favoriteAchievements.splice(idx,1); else save.favoriteAchievements.push(a.id);
+        persistSave(); buildAchList();
+      });
+      item.appendChild(favBtn);
+      achList.appendChild(item);
+    });
+  }
+  openAch.addEventListener('click', ()=>{ buildAchList(); startScreen.classList.add('hidden'); achScreen.classList.remove('hidden'); });
+  backFromAch.addEventListener('click', ()=>{ achScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); });
+
+  // ---- Boosts screen ----
+  const openBoosts=document.getElementById('openBoosts');
+  const backFromBoosts=document.getElementById('backFromBoosts');
+  const boostList=document.getElementById('boostList');
+  function buildBoostList(){
+    boostList.innerHTML='';
+    Object.values(POWER_TYPES).forEach(def=>{
+      const item=document.createElement('div'); item.className='ach-item unlocked';
+      item.innerHTML = `<div class="aic">${def.icon}</div><div><div class="at">${def.label}</div><div class="ad">${def.desc}</div></div>`;
+      boostList.appendChild(item);
+    });
+  }
+  openBoosts.addEventListener('click', ()=>{ buildBoostList(); startScreen.classList.add('hidden'); boostsScreen.classList.remove('hidden'); });
+  backFromBoosts.addEventListener('click', ()=>{ boostsScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); });
+
+  // ---- Encyclopédie build (tabs: Tout / chaque rareté / Obstacles) ----
+  const encycloList=document.getElementById('encycloList');
+  const encycloProgress=document.getElementById('encycloProgress');
+  const encycloTabs=document.getElementById('encycloTabs');
+  const encycloTabDefs = [{ id:'all', label:'Tout' }, ...Object.keys(RARITIES).map(k=>({ id:k, label:RARITIES[k].label })), { id:'obstacles', label:'Obstacles' }];
+  let encycloActiveTab = 'all';
+
+  function buildEncycloTabs(){
+    encycloTabs.innerHTML='';
+    encycloTabDefs.forEach(tab=>{
+      const btn=document.createElement('button'); btn.className='encyclo-tab'+(encycloActiveTab===tab.id?' active':'');
+      btn.textContent=tab.label;
+      btn.addEventListener('click', ()=>{ encycloActiveTab=tab.id; buildEncyclo(); });
+      encycloTabs.appendChild(btn);
+    });
+  }
+
+  function buildEncyclo(){
+    buildEncycloTabs();
+    encycloList.innerHTML='';
+    if(encycloActiveTab==='obstacles'){
+      const discovered = save.discoveredObstacles||[];
+      encycloProgress.textContent = `${discovered.length} / ${Object.keys(OBSTACLE_INFO).length} obstacles rencontrés`;
+      Object.entries(OBSTACLE_INFO).forEach(([type,info])=>{
+        const found = discovered.includes(type);
+        const item=document.createElement('div'); item.className='ach-item '+(found?'unlocked':'locked');
+        item.innerHTML = `<div class="aic">${found?info.icon:'❓'}</div>
+          <div><div class="at">${found? info.name : '???'}</div>
+          <div class="ad">${found? info.desc : 'Pas encore rencontré'}</div></div>`;
+        encycloList.appendChild(item);
+      });
+      return;
+    }
+    encycloProgress.textContent = `${save.collectedArtifacts.length} / ${ARTIFACTS.length} artefacts découverts`;
+    const order = Object.keys(RARITIES);
+    let list = encycloActiveTab==='all' ? ARTIFACTS : ARTIFACTS.filter(a=>a.rarity===encycloActiveTab);
+    const sorted = [...list].sort((a,b)=> order.indexOf(a.rarity)-order.indexOf(b.rarity) || a.name.localeCompare(b.name));
+    if(sorted.length===0){
+      const empty=document.createElement('p'); empty.className='subtitle'; empty.textContent='Aucun artefact dans cette catégorie.';
+      encycloList.appendChild(empty);
+    }
+    sorted.forEach(art=>{
+      const discovered = save.collectedArtifacts.includes(art.id);
+      const foundCount = (save.artifactCounts && save.artifactCounts[art.id]) || 0;
+      const rc = RARITIES[art.rarity];
+      const item=document.createElement('div'); item.className='ach-item clickable '+(discovered?'unlocked':'locked');
+      if(discovered) item.style.borderColor = rc.color+'55';
+      item.innerHTML = `<div class="aic" style="color:${rc.color}">${discovered? art.icon :'❓'}</div>
+        <div><div class="at">${discovered? art.name : '???'}${discovered? ' <span style=\"color:var(--muted); font-weight:600; font-size:10.5px;\">(trouvé '+foundCount+'×)</span>':''}</div>
+        <div class="ad">${discovered? art.desc : 'Non découvert'} · <span style="color:${rc.color}">${rc.label}</span> (dès ${rc.minScore} pts)</div></div>`;
+      item.addEventListener('click', ()=>openArtifactDetail(art, discovered));
+      encycloList.appendChild(item);
+    });
+  }
+
+  // ---- Artifact detail view ----
+  const artifactDetailScreen=document.getElementById('artifactDetailScreen');
+  const artifactDetailCard=document.getElementById('artifactDetailCard');
+  function openArtifactDetail(art, discovered){
+    const rc = RARITIES[art.rarity];
+    artifactDetailCard.innerHTML = `
+      <div class="detail-icon">${discovered? art.icon : '❓'}</div>
+      <div class="detail-name">${discovered? art.name : 'Artefact non découvert'}</div>
+      <div class="detail-rarity" style="color:#06131a; background:${rc.color};">${rc.label}</div>
+      <div class="detail-desc">${discovered? art.desc : 'Continue d\'explorer la Zone Infinie pour le découvrir.'}</div>
+      <div class="detail-desc">Chance de tirage : ${rc.chance}% · Débloqué à partir de ${rc.minScore} points en une partie.</div>`;
+    encycloScreen.classList.add('hidden');
+    artifactDetailScreen.classList.remove('hidden');
+  }
+  document.getElementById('backFromArtifactDetail').addEventListener('click', ()=>{
+    artifactDetailScreen.classList.add('hidden'); encycloScreen.classList.remove('hidden');
+  });
+
+  // ---- Rules screen ----
+  const rulesScreen=document.getElementById('rulesScreen');
+  document.getElementById('openRules').addEventListener('click', ()=>{
+    startScreen.classList.add('hidden'); rulesScreen.classList.remove('hidden');
+    if(!save.tutorialSeen){ save.tutorialSeen=true; persistSave(); }
+    unlockAchievement('rulesRead');
+  });
+  document.getElementById('backFromRules').addEventListener('click', ()=>{
+    rulesScreen.classList.add('hidden'); startScreen.classList.remove('hidden');
+  });
+  // First-time players see the rules automatically once, right on the start screen.
+  if(!save.tutorialSeen){
+    setTimeout(()=>{
+      startScreen.classList.add('hidden'); rulesScreen.classList.remove('hidden');
+      save.tutorialSeen=true; persistSave();
+    }, 400);
+  }
+
+  showGameUI(false);
+})();
+</script>
+</body>
+</html>
